@@ -1,0 +1,116 @@
+# noqa: D100
+
+import hail as hl
+from gnomad.resources.resource_utils import (
+    PedigreeResource,
+    TableResource,
+    VersionedPedigreeResource,
+    VersionedTableResource,
+)
+
+import os
+
+from gnomad_qc.pipeline_config import BASE, WRITE_DIR
+from gnomad_qc.v3.resources.constants import CURRENT_RELEASE, CURRENT_VERSION, RELEASES
+
+# Samples metadata
+def _meta_root_path(version: str = CURRENT_VERSION) -> str:
+    """
+    Retrieve the path to the root metadata directory.
+
+    :param version: gnomAD version
+    :return: String representation of the path to the root metadata directory
+    """
+    return f"gs://gnomad/metadata/genomes_v{version}"
+
+
+def meta_tsv_path(version: str = CURRENT_VERSION) -> str:
+    """
+    Get the path to the finalized sample metadata information after sample QC.
+
+    :param version: gnomAD version
+    :return: String path to the finalized metadata
+    """
+    return f"{_meta_root_path(version)}/gnomad_v{version}_metadata.tsv.gz"
+
+
+_meta_versions = {
+    "3.1": TableResource(
+        path="gs://gnomad/metadata/genomes_v3.1/gnomad_v3.1_sample_qc_metadata.ht"
+    ),
+    "3": TableResource(
+        path="gs://gnomad/metadata/genomes_v3/gnomad_v3_metadata_2019-09-27.ht"
+    ),
+}
+
+_project_meta_versions = {
+    "3.1": TableResource(path="gs://gnomad/metadata/genomes_v3.1/v3.1_project_meta.ht"),
+    "3": TableResource(
+        path="gs://gnomad/metadata/genomes_v3/09-09-2019_v3_project_meta.ht",
+        import_func=hl.import_table,
+        import_args={
+            "paths": "gs://gnomad/metadata/genomes_v3/09-09-2019_v3_project_meta.txt",
+            "impute": True,
+            "key": "s",
+            "min_partitions": 100,
+        },
+    ),
+}
+
+_pedigree_versions = {
+    "3.1": PedigreeResource(
+        "gs://gnomad/metadata/genomes_v3.1/gnomad_v3.1.fam",
+        delimiter="\t",
+    ),
+    "3.1_raw": PedigreeResource(
+        "gs://gnomad/metadata/genomes_v3.1/gnomad_v3.1_raw.fam", delimiter="\t"
+    ),
+    "3": PedigreeResource(
+        "gs://gnomad/metadata/genomes_v3/gnomad_v3.fam",
+        delimiter="\t",
+    ),
+    "3_raw": PedigreeResource(
+        "gs://gnomad/metadata/genomes_v3/gnomad_v3_raw.fam", delimiter="\t"
+    ),
+}
+
+
+_trios_versions = {
+    "3.1": PedigreeResource(
+        "gs://gnomad/metadata/genomes_v3.1/gnomad_v3.1_trios.fam",
+        delimiter="\t",
+    ),
+    "3.1_raw": PedigreeResource(
+        "gs://gnomad/metadata/genomes_v3.1/gnomad_v3.1_trios_raw.fam", delimiter="\t"
+    ),
+    "3": PedigreeResource(
+        "gs://gnomad/metadata/genomes_v3/gnomad_v3_trios.fam",
+        delimiter="\t",
+    ),
+    "3_raw": PedigreeResource(
+        "gs://gnomad/metadata/genomes_v3/gnomad_v3_trios_raw.fam", delimiter="\t"
+    ),
+}
+
+
+meta = os.path.join(BASE, WRITE_DIR, "meta.ht")
+# Runs at import time, so build only when absent -- an unconditional write here
+# means any module importing this one clobbers meta.ht. Delete it to rebuild.
+if not hl.hadoop_exists(meta):
+    hl.import_table(
+        os.path.join(BASE, WRITE_DIR, "meta_test.tsv"), impute=True, no_header=False
+    ).write(meta)
+project_meta = os.path.join(BASE, WRITE_DIR, "test_meta.tsv")
+pedigree = VersionedPedigreeResource("3.1", _pedigree_versions)
+trios = VersionedPedigreeResource("3.1", _trios_versions)
+'''
+ped_mendel_errors = VersionedTableResource(
+    CURRENT_VERSION,
+    {
+        version: TableResource(
+            path=f"{_meta_root_path(version)}/gnomad_v{version}_ped_chr20_mendel_errors.ht"
+        )
+        for version in VERSIONS
+    },
+)
+'''

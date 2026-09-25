@@ -1,0 +1,29 @@
+paths:
+  base_dir:
+  write_dir:
+  log_dir:
+  code_dir:
+  vds_file:
+
+spark:
+  driver_memory:
+  executor_memory:
+  executor_instances:
+  executor_cores:
+  dynamic_allocation: "false"
+  shuffle_service: "false"
+  local_dir:
+  memory_fraction: "0.8"
+
+java:
+  tool_options: "-XX:+UseG1GC -XX:G1HeapRegionSize=32M"
+
+# Reference genome FASTA files. GRCh38 has no public default -- point these at
+# your own copy (see the prerequisite-file downloads in the system requirements
+# doc). The GRCh37 defaults are public Hail buckets and only work if compute
+# nodes have internet access.
+reference:
+  grch38_fasta:
+  grch38_fasta_index:
+  grch37_fasta: "gs://hail-common/references/human_g1k_v37.fasta.gz"
+  grch37_fasta_index: "gs://hail-common/references/human_g1k_v37.fasta.fai"

@@ -1,0 +1,19 @@
+hail-*.log
+.DS_Store
+# Environments
+.env
+.venv
+.venv_experimental
+.venv_gcloud
+env/
+venv/
+venv_experimental/
+venv_gcloud/
+ENV/
+build_vds/logs/
+# Python build artifacts
+__pycache__/
+*.py[cod]
+
+# Site-specific pipeline config (copy config.yaml and fill in your own paths)
+gnomad_qc/*/configuration/config.local.yaml
