@@ -9,18 +9,22 @@
 #
 # See the bottom of this file for the Apptainer/Singularity conversion steps.
 
-FROM google/cloud-sdk:slim
+# Java 11 comes from this base image. Hail 0.2.x is tested on Java 8/11; the
+# Narval runs this container reproduces used Java 11 + Hail 0.2.134 + Spark 3.5.
+# (The previous google/cloud-sdk:slim base rebased onto Debian trixie, which
+# dropped openjdk-11 from its repos.)
+FROM eclipse-temurin:11-jre-jammy
 
-# --- System deps + Java 11 (required by Hail/Spark) -------------------------
+# --- System deps (Java 11 already provided by the base image) ----------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    curl \
     g++ \
     less \
     libbz2-dev \
     libcurl4-openssl-dev \
     liblzma-dev \
     libncurses5-dev \
-    openjdk-11-jre-headless \
     pkg-config \
     python3 \
     python3-dev \
@@ -36,7 +40,7 @@ RUN python3 -m pip install --upgrade pip
 # --- Python deps --------------------------------------------------------
 # Pin the Hail version to whatever you use to read/write your existing
 # Hail Tables/MatrixTables/VDS - Hail's on-disk format is version-sensitive.
-ENV HAIL_VERSION="0.2.113"
+ENV HAIL_VERSION="0.2.134"
 RUN python3 -m pip install \
     hail==${HAIL_VERSION} \
     numpy \
