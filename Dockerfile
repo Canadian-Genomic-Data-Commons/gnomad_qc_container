@@ -86,8 +86,11 @@ RUN python3 -m pip install --no-deps -e /opt/gnomad_methods
 
 # --- gnomad_qc pipeline scripts ---------------------------------------------
 # gnomad_qc has no setup.py upstream, so it's put on PYTHONPATH instead of
-# pip-installed.
-COPY gnomad_qc /opt/gnomad_qc
+# pip-installed. Note the nested destination: COPY copies the *contents* of the
+# source directory, so `COPY gnomad_qc /opt/gnomad_qc` would drop v3/, v4/ and
+# pipeline_config.py directly into /opt/gnomad_qc, leaving no importable
+# `gnomad_qc` package and breaking the paths entrypoint.sh resolves.
+COPY gnomad_qc /opt/gnomad_qc/gnomad_qc
 ENV PYTHONPATH="/opt/gnomad_qc"
 
 # --- entrypoint --------------------------------------------------------
