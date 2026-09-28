@@ -95,7 +95,7 @@ ENV PYTHONPATH="/opt/gnomad_qc"
 # reads paths + Spark settings from the config.yaml pointed to by
 # GNOMAD_QC_CONFIG (bind-mount your own file at container run time).
 COPY entrypoint.sh /opt/gnomad_qc/entrypoint.sh
-RUN chmod +x /opt/gnomad_qc/entrypoint.sh
+RUN sed -i "s/\\r$//" /opt/gnomad_qc/entrypoint.sh && chmod +x /opt/gnomad_qc/entrypoint.sh
 ENTRYPOINT ["/opt/gnomad_qc/entrypoint.sh"]
 
 WORKDIR /home

@@ -1,0 +1,7 @@
+# Shell scripts must keep LF endings so they run inside Linux containers even
+# when the repo is cloned on Windows (CRLF in a script's shebang breaks it).
+*.sh text eol=lf
+entrypoint.sh text eol=lf
+Dockerfile text eol=lf
+*.py text eol=lf
+*.yaml text eol=lf
