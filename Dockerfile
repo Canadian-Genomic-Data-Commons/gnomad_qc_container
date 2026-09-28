@@ -88,7 +88,7 @@ RUN python3 -m pip install --no-deps -e /opt/gnomad_methods
 # gnomad_qc has no setup.py upstream, so it's put on PYTHONPATH instead of
 # pip-installed.
 COPY gnomad_qc /opt/gnomad_qc
-ENV PYTHONPATH="/opt/gnomad_qc:${PYTHONPATH}"
+ENV PYTHONPATH="/opt/gnomad_qc"
 
 # --- entrypoint --------------------------------------------------------
 # Dispatches `--step <name>` to the matching pipeline script. Each script
