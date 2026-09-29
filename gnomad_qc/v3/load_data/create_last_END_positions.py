@@ -3,12 +3,15 @@ import os
 import hail as hl
 
 from gnomad_qc.pipeline_config import BASE, WRITE_DIR, init_hail
+
+# Hail must be configured before importing anything that may touch it, or the
+# configured Spark settings are silently discarded.
+init_hail("create_last_END_positions")
+
 from gnomad_qc.v3.resources.annotations import last_END_position
 from gnomad_qc.v3.resources.basics import get_gnomad_v3_mt
 
 # %%
-
-init_hail("create_last_END_positions")
 
 mt = get_gnomad_v3_mt(remove_hard_filtered_samples=False)
 mt = mt.select_entries("END")

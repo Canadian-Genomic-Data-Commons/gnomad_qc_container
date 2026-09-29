@@ -77,16 +77,41 @@ def _spark_conf(step_name: str) -> dict:
     return conf
 
 
+def _hail_already_running() -> bool:
+    """Whether a Hail context exists already (so the JVM is up)."""
+    try:
+        from hail.utils.java import Env
+
+        return Env._hc is not None
+    except Exception:
+        return False
+
+
 def init_hail(step_name: str, default_reference: str = "GRCh38") -> None:
     """
-    Stop any existing Hail context and start one using the shared config.
+    Start Hail using the shared config.
 
     :param step_name: Name of the pipeline step, used for the log file name
         and to look up `step_overrides` in config.yaml (e.g.
         "ancestry_classification").
     :param default_reference: Reference genome passed to hl.init.
     :return: None.
+    :raises RuntimeError: If Hail is already running, since the configured
+        Spark settings could not take effect.
     """
+    # A JVM's heap is fixed at launch, so hl.stop() + hl.init() cannot raise
+    # driver memory. If something started Hail first (importing a module that
+    # touches Hail at import time, say), the configured memory is silently
+    # discarded -- a step asking for 200g would quietly run in ~1g and die far
+    # into a long job. Fail immediately with an explanation instead.
+    if _hail_already_running():
+        raise RuntimeError(
+            f"Hail was already initialized before init_hail('{step_name}') ran, so "
+            "the Spark settings in your config.yaml cannot be applied (a JVM's "
+            "heap size is fixed when it launches). Call init_hail() before "
+            "importing anything that touches Hail at import time, such as the "
+            "gnomad_qc.v3/v4.resources modules."
+        )
     hl.stop()
     log_path = os.path.join(BASE, LOG_DIR, f"{step_name}.log") if LOG_DIR else None
     hl.init(

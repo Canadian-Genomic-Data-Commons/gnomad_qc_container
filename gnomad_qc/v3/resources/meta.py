@@ -94,13 +94,26 @@ _trios_versions = {
 
 
 meta = os.path.join(BASE, WRITE_DIR, "meta.ht")
-# Runs at import time, so build only when absent -- an unconditional write here
-# means any module importing this one clobbers meta.ht. Delete it to rebuild.
-if not hl.hadoop_exists(meta):
-    hl.import_table(
-        os.path.join(BASE, WRITE_DIR, "meta_test.tsv"), impute=True, no_header=False
-    ).write(meta)
 project_meta = os.path.join(BASE, WRITE_DIR, "test_meta.tsv")
+
+
+def ensure_meta_ht() -> str:
+    """
+    Build meta.ht from meta_test.tsv if it does not exist, and return its path.
+
+    Deliberately NOT called at import time. Touching Hail during import starts
+    it with default settings before a script's init_hail() runs, and the
+    configured Spark settings can never be applied afterwards -- the JVM heap is
+    fixed at launch, so a configured driver_memory is silently ignored (observed:
+    1GB instead of the configured 24GB). Build only where meta.ht is read.
+
+    :return: Path to meta.ht.
+    """
+    if not hl.hadoop_exists(meta):
+        hl.import_table(
+            os.path.join(BASE, WRITE_DIR, "meta_test.tsv"), impute=True, no_header=False
+        ).write(meta)
+    return meta
 pedigree = VersionedPedigreeResource("3.1", _pedigree_versions)
 trios = VersionedPedigreeResource("3.1", _trios_versions)
 '''
