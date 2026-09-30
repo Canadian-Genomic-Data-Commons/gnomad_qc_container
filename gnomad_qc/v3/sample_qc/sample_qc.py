@@ -362,7 +362,7 @@ def compute_sex(aaf_threshold: float = 0.001, f_stat_cutoff: float = 0.5) -> hl.
 
     sex_ht = annotate_sex(
         mt_pass,
-        excluded_intervals=hl.read_table(os.path.join(BASE, 'hg38.telomeresAndMergedCentromeres.ht')),
+        excluded_intervals=hl.read_table(os.path.join(BASE, 'hail', 'hg38.telomeresAndMergedCentromeres.ht')),
         aaf_threshold=aaf_threshold,
         f_stat_cutoff=f_stat_cutoff,
         sites_ht=freq_ht,

@@ -96,7 +96,7 @@ def create_bin_ht(model_id: str, n_bins: int, hgdp_tgp_subset: bool) -> hl.Table
 
     ht = ht.filter(
         ~hl.or_else(info_ht[ht.key].AS_lowqual, False)
-        & ~hl.is_defined(hl.read_table(os.path.join(BASE, 'hg38.telomeresAndMergedCentromeres.ht'))[ht.locus])
+        & ~hl.is_defined(hl.read_table(os.path.join(BASE, 'hail', 'hg38.telomeresAndMergedCentromeres.ht'))[ht.locus])
     )
     ht_non_lcr = filter_low_conf_regions(
         ht,
