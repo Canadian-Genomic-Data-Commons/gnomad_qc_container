@@ -39,6 +39,16 @@ GRCH38_FASTA_INDEX = _REFERENCE.get("grch38_fasta_index")
 GRCH37_FASTA = _REFERENCE.get("grch37_fasta")
 GRCH37_FASTA_INDEX = _REFERENCE.get("grch37_fasta_index")
 
+# gnomad_methods resolves its public resources to gs:// URLs by default. On a
+# cluster whose compute nodes have no internet, that makes Hail's GCS connector
+# query the cloud metadata service at 169.254.169.254 and hang until it times
+# out. Pointing the library at a local mirror avoids the network entirely: it
+# rewrites gs://<public-bucket>/<rest> to <dir>/<rest>, so the mirror must keep
+# the directory structure that follows the bucket name.
+PUBLIC_RESOURCE_DIR = _REFERENCE.get("public_resource_dir")
+if PUBLIC_RESOURCE_DIR and "GNOMAD_DEFAULT_PUBLIC_RESOURCE_SOURCE" not in os.environ:
+    os.environ["GNOMAD_DEFAULT_PUBLIC_RESOURCE_SOURCE"] = PUBLIC_RESOURCE_DIR
+
 if not BASE:
     raise ValueError(
         f"'paths.base_dir' is not set in {CONFIG_PATH}. Point GNOMAD_QC_CONFIG at "

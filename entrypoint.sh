@@ -168,6 +168,7 @@ declare -A STEP_NEEDS=(
     [extract_truth_samples]="--model_id <id>"
     [merge_with_truth_data]="--model_id <id>"
     [bin_truth_sample_concordance]="--model_id <id>"
+    [load_vqsr]="--vqsr_vcf_path <path>   plus --header_path for the fixed VQSR header"
     [final_filter]="--model_id and cutoffs  e.g. --model_id rf_c4e89eb8 --model_name RF --score_name RF --snp_bin_cutoff 90 --indel_bin_cutoff 80"
 )
 usage() {
