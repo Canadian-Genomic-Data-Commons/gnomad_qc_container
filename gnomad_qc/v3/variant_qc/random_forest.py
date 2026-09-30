@@ -129,7 +129,7 @@ def create_rf_ht(
         )
     )
     
-    truth_data_ht = hl.read_table(os.path.join(BASE, "truth_sites.ht"))
+    truth_data_ht = hl.read_table(os.path.join(BASE, "hail", "truth_sites.ht"))
     allele_data_ht = hl.read_table(os.path.join(BASE, WRITE_DIR, "allele_data.ht")) # allele_data.ht()
     allele_counts_ht = hl.read_table(os.path.join(BASE, WRITE_DIR, "allele_counts.ht")) # qc_ac.ht()
 

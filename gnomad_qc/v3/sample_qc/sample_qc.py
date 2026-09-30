@@ -160,7 +160,7 @@ def compute_qc_mt(
     v2_qc_sites = v2_qc_sites.key_by("locus")
     purcell5k = hl.read_table(os.path.join(BASE,'purcell5k.ht'))
     qc_sites = v2_qc_sites.union(purcell5k, unify=True)
-    lcr_intervals = hl.read_table(os.path.join(BASE,'LCRFromHengHg38.ht'))
+    lcr_intervals = hl.read_table(os.path.join(BASE, 'hail', 'LCRFromHengHg38.ht'))
     qc_sites = v2_qc_sites.filter(hl.is_missing(lcr_intervals[v2_qc_sites.key]))
 
     mt = get_gnomad_v3_mt(
@@ -1451,7 +1451,7 @@ def main(args):  # noqa: D103
             key_by_locus_and_alleles=True,
             remove_hard_filtered_samples=True
         )
-        clinvar_ht = hl.read_table(os.path.join(BASE, 'clinvar_20190923.ht'))
+        clinvar_ht = hl.read_table(os.path.join(BASE, 'hail', 'clinvar_20190923.ht'))
 
         # Normalize to minimal representation (left-aligned and trimmed)
         mt = mt.annotate_rows(alleles_minrep = hl.min_rep(mt.locus, mt.alleles))
