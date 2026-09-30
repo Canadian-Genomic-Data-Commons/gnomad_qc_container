@@ -127,3 +127,14 @@ ped_mendel_errors = VersionedTableResource(
     },
 )
 '''
+
+
+if __name__ == "__main__":
+    # Running this module as a script builds meta.ht from meta_test.tsv. The
+    # build is not done at import time -- see ensure_meta_ht() for why.
+    import hail as _hl
+
+    _hl.init()
+    print(f"Building {meta} if absent...")
+    ensure_meta_ht()
+    print("Done.")

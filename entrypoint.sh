@@ -26,8 +26,12 @@ STEP_ORDER=(
     compute_qc_mt
     run_pca
     pc_relate
+    compute_related_samples_to_drop
     assign_pops
     ancestry_classification
+    apply_stratified_filters
+    apply_regressed_filters
+    calculate_clinvar
     generate_metadata
     find_dups
     infer_families
@@ -65,6 +69,10 @@ declare -A STEP_SCRIPT=(
     [pc_relate]="gnomad_qc/v3/sample_qc/sample_qc.py"
     [assign_pops]="gnomad_qc/v3/sample_qc/sample_qc.py"
     [generate_metadata]="gnomad_qc/v3/sample_qc/sample_qc.py"
+    [compute_related_samples_to_drop]="gnomad_qc/v3/sample_qc/sample_qc.py"
+    [apply_stratified_filters]="gnomad_qc/v3/sample_qc/sample_qc.py"
+    [apply_regressed_filters]="gnomad_qc/v3/sample_qc/sample_qc.py"
+    [calculate_clinvar]="gnomad_qc/v3/sample_qc/sample_qc.py"
     [ancestry_classification]="gnomad_qc/v3/sample_qc/ancestry_classification.py"
     [find_dups]="gnomad_qc/v3/sample_qc/create_fam.py"
     [infer_families]="gnomad_qc/v3/sample_qc/create_fam.py"
@@ -102,6 +110,10 @@ declare -A STEP_FLAGS=(
     [pc_relate]="--run_pc_relate"
     [assign_pops]="--assign_pops"
     [generate_metadata]="--generate_metadata"
+    [compute_related_samples_to_drop]="--compute_related_samples_to_drop"
+    [apply_stratified_filters]="--apply_stratified_filters"
+    [apply_regressed_filters]="--apply_regressed_filters"
+    [calculate_clinvar]="--calculate_clinvar"
     [ancestry_classification]=""
     [find_dups]="--find_dups"
     [infer_families]="--infer_families"
@@ -124,6 +136,18 @@ declare -A STEP_FLAGS=(
     [v2_pc_relate]="--run_pc_relate"
 )
 
+# Steps whose script requires an argument only an analyst can choose (a model to
+# use, a quality cutoff). The dispatcher cannot supply these; without them the
+# script exits with an argparse error. Examples are the values used in this
+# project's own run scripts.
+declare -A STEP_NEEDS=(
+    [apply_rf]="--model_id <id>            e.g. --model_id rf_c4e89eb8"
+    [create_bin_ht]="--model_id <id>            e.g. --model_id rf_c4e89eb8"
+    [create_aggregated_bin_ht]="--model_id <id>            e.g. --model_id rf_c4e89eb8"
+    [final_filter]="--model_id, cutoffs        e.g. --model_id rf_c4e89eb8 --model_name RF --score_name RF --snp_bin_cutoff 90 --indel_bin_cutoff 80"
+    [subpop_analysis]="a mislabelled-sample threshold, e.g. --max-number-mislabeled-training-samples 50"
+)
+
 usage() {
     cat <<EOF
 Usage: --step <name> [extra args passed through to the script]
@@ -133,6 +157,9 @@ Steps, in SOP pipeline order (VDS creation happens before these, via build_vds/)
 EOF
     for k in "${STEP_ORDER[@]}"; do
         printf '  %-28s %s %s\n' "$k" "${STEP_SCRIPT[$k]##*/}" "${STEP_FLAGS[$k]}"
+        if [[ -n "${STEP_NEEDS[$k]:-}" ]]; then
+            printf '  %-28s   ^ also needs: %s\n' "" "${STEP_NEEDS[$k]}"
+        fi
     done
     cat <<EOF
 
