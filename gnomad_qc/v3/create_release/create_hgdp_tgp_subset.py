@@ -48,6 +48,8 @@ from gnomad_qc.v3.resources.sample_qc import (
 from gnomad_qc.v3.resources.variant_qc import SYNDIP, final_filter
 from gnomad_qc.v3.utils import hom_alt_depletion_fix
 
+from gnomad_qc.pipeline_config import init_hail
+
 logging.basicConfig(format="%(levelname)s (%(name)s %(lineno)s): %(message)s")
 logger = logging.getLogger("create_subset")
 logger.setLevel(logging.INFO)
@@ -645,7 +647,7 @@ def create_full_subset_dense_mt(
 
 
 def main(args):  # noqa: D103
-    hl.init(log="/hgdp_tgp_subset.log", default_reference="GRCh38")
+    init_hail("create_hgdp_tgp_subset")
 
     test = args.test
     sample_annotation_resource = hgdp_tgp_subset_annotations(test=test)

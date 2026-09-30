@@ -50,12 +50,14 @@ from gnomad.variant_qc.pipeline import INBREEDING_COEFF_HARD_CUTOFF
 
 from gnomad_qc.v3.resources.basics import get_checkpoint_path, qc_temp_prefix
 from gnomad_qc.v3.resources.release import (
+
     append_to_vcf_header_path,
     hgdp_tgp_subset,
     release_header_path,
     release_sites,
     release_vcf_path,
 )
+from gnomad_qc.pipeline_config import init_hail
 
 logging.basicConfig(
     format="%(asctime)s (%(name)s %(lineno)s): %(message)s",
@@ -851,10 +853,7 @@ def build_parameter_dict(
 
 
 def main(args):  # noqa: D103
-    hl.init(
-        log="/vcf_release.log",
-        default_reference="GRCh38",
-    )
+    init_hail("prepare_vcf_data_release")
     hgdp_tgp = args.hgdp_tgp_subset
     chromosome = args.export_chromosome
     export_reference = build_vcf_export_reference("gnomAD_GRCh38")

@@ -16,9 +16,11 @@ from gnomad.utils.sparse_mt import compute_coverage_stats
 from gnomad_qc.v3.resources.basics import get_gnomad_v3_mt
 from gnomad_qc.v3.resources.meta import meta
 
+from gnomad_qc.pipeline_config import init_hail
+
 
 def main(args):  # noqa: D103
-    hl.init(default_reference="GRCh38")
+    init_hail("compute_coverage")
     coverage_version = (
         args.coverage_version
         if args.coverage_version

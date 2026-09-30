@@ -12,10 +12,12 @@ from gnomad.utils.slack import slack_notifications
 
 from gnomad_qc.slack_creds import slack_token
 from gnomad_qc.v3.resources.release import (
+
     annotation_hists_path,
     qual_hists_json_path,
     release_ht_path,
 )
+from gnomad_qc.pipeline_config import init_hail
 
 logging.basicConfig(
     format="%(asctime)s (%(name)s %(lineno)s): %(message)s",
@@ -56,7 +58,7 @@ def create_frequency_bins_expr_inbreeding(
 
 
 def main(args):  # noqa: D103
-    hl.init(default_reference="GRCh38", log="/variant_histograms.log")
+    init_hail("make_var_annot_hists")
 
     logger.info("Loading ANNOTATIONS_HISTS dictionary...")
     if not file_exists(annotation_hists_path()):

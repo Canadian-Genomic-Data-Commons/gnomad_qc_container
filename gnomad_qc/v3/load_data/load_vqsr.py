@@ -11,6 +11,8 @@ from gnomad.utils.sparse_mt import split_info_annotation
 from gnomad_qc.slack_creds import slack_token
 from gnomad_qc.v3.resources.annotations import get_vqsr_filters
 
+from gnomad_qc.pipeline_config import init_hail
+
 logging.basicConfig(format="%(levelname)s (%(name)s %(lineno)s): %(message)s")
 logger = logging.getLogger("import_vqsr")
 logger.setLevel(logging.INFO)
@@ -81,7 +83,7 @@ def import_vqsr(
 
 
 def main(args):  # noqa: D103
-    hl.init(log="/load_data.log", default_reference="GRCh38")
+    init_hail("load_vqsr")
 
     import_vqsr(
         args.vqsr_vcf_path,
