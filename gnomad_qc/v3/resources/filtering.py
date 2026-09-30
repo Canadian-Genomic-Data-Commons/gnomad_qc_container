@@ -181,7 +181,7 @@ def filter_low_conf_regions(
                 "The telomeres_and_centromeres resource only exists for GRCh38"
             )
         
-        telomeres_and_centromeres = hl.read_table(os.path.join(BASE, 'hg38.telomeresAndMergedCentromeres.ht'))
+        telomeres_and_centromeres = hl.read_table(os.path.join(BASE, 'hail', 'hg38.telomeresAndMergedCentromeres.ht'))
         criteria.append(hl.is_missing(telomeres_and_centromeres[mt.locus]))
 
     if high_conf_regions is not None:

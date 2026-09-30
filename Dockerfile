@@ -61,9 +61,11 @@ RUN python3 -m pip install \
     papermill \
     ipython \
     click
-# Optional: Slack notifications used by gnomad.utils.slack (`from slack import
-# WebClient`) - only needed if you actually use that helper.
-# RUN python3 -m pip install slackclient
+# Required, despite only being used for notifications: gnomad/utils/slack.py does
+# `from slack import WebClient` at module level, and 62 pipeline scripts import
+# from that module, so without this most steps fail at import with
+# ModuleNotFoundError. Pinned to the version the pipeline was tested against.
+RUN python3 -m pip install slackclient==2.5.0
 
 # --- GCS connector (only needed if you read/write gs:// paths from here) -----
 RUN export SPARK_HOME=$(find_spark_home.py) && \
