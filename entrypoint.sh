@@ -171,6 +171,24 @@ declare -A STEP_NEEDS=(
     [load_vqsr]="--vqsr_vcf_path <path>   plus --header_path for the fixed VQSR header"
     [final_filter]="--model_id and cutoffs  e.g. --model_id rf_c4e89eb8 --model_name RF --score_name RF --snp_bin_cutoff 90 --indel_bin_cutoff 80"
 )
+# Steps that cannot run outside the Broad. They read or checkpoint through
+# gnomAD's internal storage (gs://gnomad/, gs://gnomad-tmp/, gs://gnomad-tmp-4day/),
+# which is not public, so no local mirror can stand in for it. None of them were
+# ever run in this project. Making one work means converting its resource paths
+# to read from config.yaml, the way the rest of the pipeline was converted.
+# Refuse up front rather than let the caller wait out a network timeout -- these
+# retry for minutes before failing.
+declare -A STEP_UNSUPPORTED=(
+    [calculate_inbreeding]="reads qc.mt() from gs://gnomad/"
+    [extract_truth_samples]="checkpoints to gs://gnomad-tmp-4day/"
+    [merge_with_truth_data]="truth data under gs://gnomad/"
+    [bin_truth_sample_concordance]="truth data under gs://gnomad/"
+    [export_transmitted_singletons_vcf]="writes under gs://gnomad/"
+    [make_var_annot_hists]="release data under gs://gnomad/"
+    [prepare_vcf_data_release]="release data under gs://gnomad/"
+    [v2_pc_relate]="reads gs://gnomad-tmp/v2_exomes_v3_joint_qc.mt"
+)
+
 usage() {
     cat <<EOF
 Usage: --step <name> [extra args passed through to the script]
@@ -180,6 +198,9 @@ Steps, in SOP pipeline order (VDS creation happens before these, via build_vds/)
 EOF
     for k in "${STEP_ORDER[@]}"; do
         printf '  %-28s %s %s\n' "$k" "${STEP_SCRIPT[$k]##*/}" "${STEP_FLAGS[$k]}"
+        if [[ -n "${STEP_UNSUPPORTED[$k]:-}" ]]; then
+            printf '  %-28s   ^ UNSUPPORTED here: %s\n' "" "${STEP_UNSUPPORTED[$k]}"
+        fi
         if [[ -n "${STEP_NEEDS[$k]:-}" ]]; then
             printf '  %-28s   ^ also needs: %s\n' "" "${STEP_NEEDS[$k]}"
         fi
@@ -209,6 +230,16 @@ if [[ -z "$SCRIPT" ]]; then
     usage
     exit 1
 fi
+if [[ -n "${STEP_UNSUPPORTED[$STEP]:-}" ]]; then
+    cat >&2 <<MSG
+Step '$STEP' is not supported outside the Broad: ${STEP_UNSUPPORTED[$STEP]}.
+That storage is not public, so a local resource mirror cannot substitute for it.
+To enable this step, convert its resource paths to read from config.yaml, as the
+rest of the pipeline does, then remove it from STEP_UNSUPPORTED in this script.
+MSG
+    exit 1
+fi
+
 FLAGS="${STEP_FLAGS[$STEP]:-}"
 
 : "${GNOMAD_QC_CONFIG:?Set GNOMAD_QC_CONFIG to your config.yaml path and bind-mount it into the container}"
