@@ -291,11 +291,21 @@ def main(args):  # noqa: D103
         )
         logger.info(f"Completed annotation wrangling for random forests model training")
 
+    # Defined outside the --train_rf branch because --apply_rf and the steps
+    # after it run as separate invocations and need this path too; previously
+    # `--apply_rf --model_id <id>` on its own raised NameError here.
+    base_rf_run_path = os.path.join(BASE, WRITE_DIR, "rf_runs")
+    # The run list must be its own file. It used to be written to
+    # <base_rf_run_path>/<model_id>, which is also where the model is saved, so
+    # saving the model destroyed the run list -- and get_rf_runs() was handed
+    # the directory rather than a JSON file, where os.path.isfile() is always
+    # False, so every run silently started from an empty list.
+    rf_runs_json = os.path.join(base_rf_run_path, "rf_runs.json")
+
     if args.train_rf:
-        base_rf_run_path = os.path.join(BASE, WRITE_DIR, "rf_runs")
         if not os.path.exists(base_rf_run_path):
             os.makedirs(base_rf_run_path)
-        rf_runs = get_rf_runs(base_rf_run_path)
+        rf_runs = get_rf_runs(rf_runs_json)
         model_id = f"rf_{str(uuid.uuid4())[:8]}"
         while model_id in rf_runs:
             model_id = f"rf_{str(uuid.uuid4())[:8]}"
@@ -349,8 +359,14 @@ def main(args):  # noqa: D103
             test_results=hl.eval(ht.test_results),
         )
 
-        with hl.hadoop_open(os.path.join(base_rf_run_path, model_id), "w") as f:
+        with hl.hadoop_open(rf_runs_json, "w") as f:
             json.dump(rf_runs, f)
+
+        # The model id is otherwise only visible in the log, and every step
+        # after this one needs it as --model_id.
+        logger.info("Trained model id: %s", model_id)
+        with hl.hadoop_open(os.path.join(base_rf_run_path, "latest_model_id"), "w") as f:
+            f.write(model_id + "\n")
 
         logger.info("Saving RF model")
         save_model(
