@@ -39,7 +39,38 @@ cp gnomad_qc/v3/configuration/config.yaml my_config.yaml
 | `reference` | GRCh38 FASTA + `.fai` paths (no public default -- use your own copy) |
 | `step_overrides` | Optional per-step Spark overrides, since steps range from ~10G to ~300G peak memory |
 
-## Build
+## Get the image
+
+### Option 1: pull a published image (no Docker needed)
+
+Images are published to the GitHub Container Registry. On the cluster:
+
+```
+module load apptainer
+apptainer pull gnomad_qc.sif docker://ghcr.io/canadian-genomic-data-commons/gnomad_qc_container:latest
+```
+
+If the package is private, authenticate first with a GitHub personal access token
+that has `read:packages`:
+
+```
+apptainer registry login --username <github-username> docker://ghcr.io
+```
+
+If compute nodes have no outbound network, pull on the login node and copy the
+`.sif` to scratch.
+
+Note on where to build: run `apptainer pull`/`build` against node-local disk
+rather than a parallel filesystem. The Hail and Spark layers contain tens of
+thousands of small files, and on Lustre the metadata overhead is severe -- one
+build managed 8 of 16 layers in 40 minutes, against 2m09s on a node's local SSD:
+
+```
+export APPTAINER_TMPDIR=$SLURM_TMPDIR/aptmp
+export APPTAINER_CACHEDIR=$SLURM_TMPDIR/apcache
+```
+
+### Option 2: build it yourself
 
 Requires Docker, so build on a workstation or VM -- HPC login nodes do not have it.
 
@@ -55,6 +86,23 @@ docker save gnomad_qc:latest -o gnomad_qc.tar
 module load apptainer
 apptainer build gnomad_qc.sif docker-archive://gnomad_qc.tar
 ```
+
+## Publishing a new image (maintainers)
+
+`.github/workflows/publish-image.yml` builds the image and pushes it to ghcr.io
+using the repository's own `GITHUB_TOKEN` -- no registry credentials to manage.
+It does not run on every push, since publishing is outward-facing. Trigger it
+either way:
+
+```
+git tag v1.0.0 && git push origin v1.0.0    # publishes 1.0.0, 1.0 and latest
+```
+
+or from the Actions tab, "Publish image" -> "Run workflow", giving a tag name.
+
+The package inherits the repository's visibility, so on a private repository it
+starts private. To let other labs pull it without a token, change it under
+Packages -> gnomad_qc_container -> Package settings -> Change visibility.
 
 ## Run
 

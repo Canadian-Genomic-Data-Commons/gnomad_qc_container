@@ -1,0 +1,95 @@
+# Builds the pipeline image and publishes it to the GitHub Container Registry
+# (ghcr.io), so a lab can `apptainer pull` it instead of building Docker itself
+# and transferring a ~2 GB archive by hand.
+#
+# Deliberately does NOT run on every push to main: publishing is outward-facing,
+# so it happens when you tag a release or press "Run workflow".
+#
+#   git tag v1.0.0 && git push origin v1.0.0
+#
+# The package inherits the repository's visibility, so on a private repo it is
+# private until you change it in the package settings.
+name: Publish image
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to publish (e.g. v1.0.0-rc1, or edge)"
+        required: true
+        default: edge
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      # gnomad_methods is a submodule the Dockerfile requires; without this the
+      # build stops at the guard that checks for its setup.py.
+      - name: Check out repository and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Hail pulls in a large dependency tree and the finished image is ~2 GB.
+      # Runners ship with preinstalled toolchains we do not need.
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          df -h /
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Image names must be lowercase; the repository owner is not.
+      - name: Derive image name and tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # The pinned Hail/Spark/Java stack is the point of this image, so a
+          # cached layer from an earlier build is safe to reuse.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summarise
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          first_tag=$(printf '%s\n' "$TAGS" | head -1)
+          {
+            echo "### Published"
+            echo
+            echo '```'
+            printf '%s\n' "$TAGS"
+            echo '```'
+            echo
+            echo "Pull on an HPC cluster with Apptainer:"
+            echo
+            echo '```'
+            echo "apptainer pull gnomad_qc.sif docker://${first_tag}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
