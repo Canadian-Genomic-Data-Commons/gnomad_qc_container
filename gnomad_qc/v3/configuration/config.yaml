@@ -23,11 +23,10 @@ java:
 # doc). The GRCh37 defaults are public Hail buckets and only work if compute
 # nodes have internet access.
 reference:
-  grch38_fasta: "/home/kobe/scratch/gnomad/Homo_sapiens_assembly38.fasta.gz"
-  grch38_fasta_index: "/home/kobe/scratch/gnomad/Homo_sapiens_assembly38.fasta.gz.fai"
-  grch37_fasta: 
-  grch37_fasta_index: 
-
+  grch38_fasta:
+  grch38_fasta_index:
+  grch37_fasta:
+  grch37_fasta_index:
 
   # Local mirror of gnomAD's public resources, for clusters whose compute nodes
   # have no internet. Without this, gnomad_methods resolves those resources to
