@@ -14,12 +14,26 @@
 # gnomad_qc/v3/configuration/config.yaml for the template/schema.
 set -euo pipefail
 
-# Ordered to follow the pipeline sequence in the gnomad_qc v3 README.
+# Ordered to follow the pipeline sequence in the gnomad_qc v3 README, with
+# three deviations the README's order does not survive in this fork, each
+# established by running the pipeline end to end into an empty directory:
+#
+#   bootstrap_meta runs first. meta.ht is a prerequisite built from your
+#   project metadata TSV, not something the pipeline produces: five steps
+#   read it and none write it.
+#
+#   generate_qc_annotations moved ahead of compute_qc_mt, which reads the
+#   split_info.ht it writes.
+#
+#   the two freq steps moved ahead of annotate_for_rf, which reads the
+#   corrected_freq.ht they write.
 STEP_ORDER=(
+    bootstrap_meta
     create_last_END_positions
     sample_qc
     impute_sex
     compute_hard_filters
+    generate_qc_annotations
     compute_qc_mt
     pc_relate
     run_pca
@@ -35,9 +49,10 @@ STEP_ORDER=(
     infer_families
     run_mendel_errors
     finalize_ped
-    generate_qc_annotations
     export_info_vcf
     load_vqsr
+    freq_run_dense_annotations
+    freq_correct_high_ab_hets
     annotate_for_rf
     train_rf
     apply_rf
@@ -47,8 +62,6 @@ STEP_ORDER=(
     merge_with_truth_data
     bin_truth_sample_concordance
     final_filter
-    freq_run_dense_annotations
-    freq_correct_high_ab_hets
     generate_allele_data
     generate_ac
     generate_fam_stats
@@ -63,6 +76,7 @@ STEP_ORDER=(
 )
 
 declare -A STEP_SCRIPT=(
+    [bootstrap_meta]="gnomad_qc/v3/resources/meta.py"
     [create_last_END_positions]="gnomad_qc/v3/load_data/create_last_END_positions.py"
     [sample_qc]="gnomad_qc/v3/sample_qc/sample_qc.py"
     [impute_sex]="gnomad_qc/v3/sample_qc/sample_qc.py"
@@ -111,6 +125,7 @@ declare -A STEP_SCRIPT=(
 
 # Empty means the script takes no step-selecting flags (it runs top to bottom).
 declare -A STEP_FLAGS=(
+    [bootstrap_meta]=""
     [create_last_END_positions]=""
     [sample_qc]="--sample_qc"
     [impute_sex]="--impute_sex"

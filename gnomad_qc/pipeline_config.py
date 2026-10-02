@@ -36,15 +36,17 @@ VDS_FILE = _PATHS.get("vds_file")
 
 GRCH38_FASTA = _REFERENCE.get("grch38_fasta")
 GRCH38_FASTA_INDEX = _REFERENCE.get("grch38_fasta_index")
+# Keep these even where only GRCh38 is used: v3/resources/reference_genome.py
+# imports all four names at module load, so dropping them breaks every step that
+# reaches reference_genome, whether or not GRCh37 is configured. Unset is fine --
+# they resolve to None and reference_genome raises only if GRCh37 is requested.
 GRCH37_FASTA = _REFERENCE.get("grch37_fasta")
 GRCH37_FASTA_INDEX = _REFERENCE.get("grch37_fasta_index")
 
 # gnomad_methods resolves its public resources to gs:// URLs by default. On a
 # cluster whose compute nodes have no internet, that makes Hail's GCS connector
 # query the cloud metadata service at 169.254.169.254 and hang until it times
-# out. Pointing the library at a local mirror avoids the network entirely: it
-# rewrites gs://<public-bucket>/<rest> to <dir>/<rest>, so the mirror must keep
-# the directory structure that follows the bucket name.
+# out. Pointing the library at a local mirror avoids the network entirely:
 PUBLIC_RESOURCE_DIR = _REFERENCE.get("public_resource_dir")
 if PUBLIC_RESOURCE_DIR and "GNOMAD_DEFAULT_PUBLIC_RESOURCE_SOURCE" not in os.environ:
     os.environ["GNOMAD_DEFAULT_PUBLIC_RESOURCE_SOURCE"] = PUBLIC_RESOURCE_DIR
