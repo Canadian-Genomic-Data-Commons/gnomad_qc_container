@@ -41,11 +41,11 @@ STEP_ORDER=(
     ancestry_classification
     calculate_inbreeding
     calculate_clinvar
-    apply_stratified_filters
     apply_regressed_filters
     compute_related_samples_to_drop
-    generate_metadata
     find_dups
+    generate_metadata
+    apply_stratified_filters
     infer_families
     run_mendel_errors
     finalize_ped

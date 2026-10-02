@@ -1279,7 +1279,13 @@ def main(args):  # noqa: D103
         ).write(os.path.join(BASE, WRITE_DIR, 'reannotate_sex.ht'), overwrite=True)
 
     if args.compute_hard_filters:
-        compute_hard_filters(args.min_cov).write(
+        compute_hard_filters(
+            args.min_cov,
+            max_n_snp=args.max_n_snp,
+            min_n_snp=args.min_n_snp,
+            max_n_singleton=args.max_n_singleton,
+            max_r_het_hom_var=args.max_r_het_hom_var,
+        ).write(
             os.path.join(BASE, WRITE_DIR, 'compute_hard_filters.ht'), overwrite=True
         )
 
@@ -1635,6 +1641,36 @@ if __name__ == "__main__":
         help="Minimum coverage for inclusion when computing hard-filters",
         default=10,
         type=int,
+    )
+    # These four were hardcoded in compute_hard_filters(), and they are absolute
+    # genome-wide counts. Any callset covering less than the whole genome -- an
+    # exome, a panel, or a chromosome subset used for testing -- falls below
+    # min_n_snp for every sample and is hard-filtered in its entirety, which
+    # surfaces much later as an empty-input error in the outlier regression.
+    # Defaults are unchanged, so genome-wide behaviour is identical.
+    parser.add_argument(
+        "--max_n_snp",
+        help="Maximum number of SNPs for a sample to pass hard filters",
+        default=2e6,
+        type=float,
+    )
+    parser.add_argument(
+        "--min_n_snp",
+        help="Minimum number of SNPs for a sample to pass hard filters",
+        default=5e5,
+        type=float,
+    )
+    parser.add_argument(
+        "--max_n_singleton",
+        help="Maximum number of singletons for a sample to pass hard filters",
+        default=5e5,
+        type=float,
+    )
+    parser.add_argument(
+        "--max_r_het_hom_var",
+        help="Maximum het/hom-var ratio for a sample to pass hard filters",
+        default=11,
+        type=float,
     )
     parser.add_argument(
         "--compute_qc_mt",
