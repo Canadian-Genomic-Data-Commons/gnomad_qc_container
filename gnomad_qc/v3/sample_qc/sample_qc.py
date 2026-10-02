@@ -785,11 +785,16 @@ def assign_pops(
         max_mislabeled=max_mislabeled,
         pop_assignment_iterations=pop_assignment_iter,
         pcs=pcs,
-        pop=pop,
         high_quality=high_quality,
         n_mislabeled_training_samples=n_mislabeled_samples,
         prop_mislabeled_training_samples=prop_mislabeled_samples,
     )
+    # Only meaningful on the subpop path, where `pop` names the population being
+    # subdivided and pop_field is "subpop". On the global path `pop` is None,
+    # which Hail cannot impute a type for, and pop_field is itself "pop" -- so
+    # annotating it there collided with the row field of the same name.
+    if pop is not None:
+        pop_ht = pop_ht.annotate_globals(pop=pop)
     if withhold_prop:
         pop_ht = pop_ht.annotate_globals(withhold_prop=withhold_prop)
     pop_ht = pop_ht.annotate(
@@ -1415,14 +1420,21 @@ def main(args):  # noqa: D103
             pcs=pcs,
             withhold_prop=args.withhold_prop,
         )
+        # These three were the last writes in this step still pointing at
+        # gs://gnomad/, which is not public: the step did all of its work and
+        # then failed with a 401 trying to checkpoint there.
         pop_ht = pop_ht.checkpoint(
-            pop.path, overwrite=args.overwrite, _read_if_exists=not args.overwrite
+            os.path.join(BASE, WRITE_DIR, "pop.ht"),  # pop.path
+            overwrite=args.overwrite,
+            _read_if_exists=not args.overwrite,
         )
         pop_ht.transmute(**{f"PC{i + 1}": pop_ht.pca_scores[i] for i in pcs}).export(
-            pop_tsv_path()
+            os.path.join(BASE, WRITE_DIR, "RF_pop_assignments.txt.gz")  # pop_tsv_path()
         )
 
-        with hl.hadoop_open(pop_rf_path(), "wb") as out:
+        with hl.hadoop_open(
+            os.path.join(BASE, WRITE_DIR, "pop.RF_fit.pickle"), "wb"  # pop_rf_path()
+        ) as out:
             pickle.dump(pops_rf_model, out)
 
     if args.calculate_inbreeding:
