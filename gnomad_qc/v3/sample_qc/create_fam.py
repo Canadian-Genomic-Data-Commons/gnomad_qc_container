@@ -200,7 +200,13 @@ def main(args):  # noqa: D103
 
     if args.run_mendel_errors:
         mendel_errors = run_mendel_errors()
-        mendel_errors.write(hl.Pedigree.read(os.path.join(BASE, WRITE_DIR, "ped_mendel_errors.ht")), overwrite=args.overwrite)
+        # Table.write takes a path. This was passing hl.Pedigree.read() of the
+        # output path, so the step tried to read the file it was about to write
+        # and always failed with FileNotFoundException on a first run.
+        mendel_errors.write(
+            os.path.join(BASE, WRITE_DIR, "ped_mendel_errors.ht"),
+            overwrite=args.overwrite,
+        )
 
     if args.finalize_ped:
         final_ped = filter_ped(
