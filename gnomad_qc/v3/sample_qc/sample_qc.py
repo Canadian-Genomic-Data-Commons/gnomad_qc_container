@@ -1428,7 +1428,14 @@ def main(args):  # noqa: D103
             overwrite=args.overwrite,
             _read_if_exists=not args.overwrite,
         )
-        pop_ht.transmute(**{f"PC{i + 1}": pop_ht.pca_scores[i] for i in pcs}).export(
+        # `pcs` is 1-based, but assign_population_pcs pulls pc_expr[i - 1] and
+        # returns pca_scores holding exactly those PCs in that order. So the
+        # array is indexed by position, not by PC number: indexing it with the
+        # 1-based value read one past the end (index=2, length=2 for the default
+        # [1, 2]) and named the columns PC2/PC3 instead of PC1/PC2.
+        pop_ht.transmute(
+            **{f"PC{pc}": pop_ht.pca_scores[idx] for idx, pc in enumerate(pcs)}
+        ).export(
             os.path.join(BASE, WRITE_DIR, "RF_pop_assignments.txt.gz")  # pop_tsv_path()
         )
 
@@ -1705,7 +1712,11 @@ if __name__ == "__main__":
             " 1-based."
         ),
         default=list(range(1, 3)),
-        type=list,
+        # `type=list` applied str() to each argument, so --pop_pcs 1,2,3 parsed
+        # as ['1', ',', '2', ',', '3'] and assign_population_pcs rejected it for
+        # holding non-integers. Only the default ever worked.
+        type=int,
+        nargs="+",
     )
     parser.add_argument(
         "--min_pop_prob",
