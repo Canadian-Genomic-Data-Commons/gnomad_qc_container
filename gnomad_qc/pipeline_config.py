@@ -63,6 +63,12 @@ WRITE_DIR = _PATHS.get("write_dir")
 LOG_DIR = _PATHS.get("log_dir")
 CODE_DIR = _PATHS.get("code_dir")
 VDS_FILE = _PATHS.get("vds_file")
+# Hail's own scratch directory, separate from spark.local_dir. It defaults to
+# /tmp, which inside a container is small, may be a tmpfs, and is not
+# guaranteed to persist for the life of a query -- train_rf failed with
+# FileNotFoundException on a /tmp scan-aggregation part file it had just
+# written. Point this at per-job node-local disk.
+TMP_DIR = _PATHS.get("tmp_dir")
 
 GRCH38_FASTA = _REFERENCE.get("grch38_fasta")
 GRCH38_FASTA_INDEX = _REFERENCE.get("grch38_fasta_index")
@@ -156,8 +162,13 @@ def init_hail(step_name: str, default_reference: str = "GRCh38") -> None:
         )
     hl.stop()
     log_path = os.path.join(BASE, LOG_DIR, f"{step_name}.log") if LOG_DIR else None
+    init_kwargs = {}
+    if TMP_DIR:
+        os.makedirs(TMP_DIR, exist_ok=True)
+        init_kwargs["tmp_dir"] = TMP_DIR
     hl.init(
         log=log_path,
         spark_conf=_spark_conf(step_name),
         default_reference=default_reference,
+        **init_kwargs,
     )

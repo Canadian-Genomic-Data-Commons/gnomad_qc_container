@@ -4,6 +4,12 @@ paths:
   log_dir:
   code_dir:
   vds_file:
+  # Hail's scratch directory, separate from spark.local_dir below. Both should
+  # be fast node-local disk, not a parallel filesystem. Leaving this unset means
+  # Hail uses /tmp, which inside a container is small and may not persist for a
+  # whole query. Environment variables are expanded, so on Slurm this can be
+  # '${SLURM_TMPDIR}/hail'.
+  tmp_dir:
 
 spark:
   driver_memory:
@@ -18,20 +24,10 @@ spark:
 java:
   tool_options: "-XX:+UseG1GC -XX:G1HeapRegionSize=32M"
 
-# Reference genome FASTA files. GRCh38 has no public default -- point these at
-# your own copy (see the prerequisite-file downloads in the system requirements
-# doc). The GRCh37 defaults are public Hail buckets and only work if compute
-# nodes have internet access.
+# Reference genome FASTA files
 reference:
   grch38_fasta:
   grch38_fasta_index:
-  grch37_fasta:
-  grch37_fasta_index:
 
-  # Local mirror of gnomAD's public resources, for clusters whose compute nodes
-  # have no internet. Without this, gnomad_methods resolves those resources to
-  # gs:// URLs and steps hang for ~100s before failing with NoRouteToHost.
-  # Mirror the structure that follows the bucket name, e.g. a resource at
-  # gs://gnomad-public-requester-pays/resources/grch38/x.ht must live at
-  # <public_resource_dir>/resources/grch38/x.ht
+  # Local mirror of gnomAD's public resources
   public_resource_dir:
