@@ -121,10 +121,17 @@ def create_rf_ht(
     ht = ht.select("lowqual", "AS_lowqual", "FS", "MQ", *INFO_FEATURES_EXISTING) # , "QD"
 
     inbreeding_ht = hl.read_table(os.path.join(BASE, WRITE_DIR, "corrected_freq.ht")) # get_freq().ht()
+    # Drop every non-finite value, not just NaN. This guarded NaN alone, but
+    # the inbreeding coefficient is 1 - observed_het/expected_het, so a variant
+    # with zero expected heterozygosity and observed hets yields -Infinity
+    # rather than NaN. Spark's random forest rejects NaN and Infinity alike
+    # ("Vector values MUST NOT be NaN or Infinity"), so train_rf failed outright
+    # -- on a 50-sample callset 1,215 of 1,419,994 variants were infinite.
+    # Missing is the right representation: the RF already imputes missing
+    # features, and a degenerate denominator carries no information.
     inbreeding_ht = inbreeding_ht.select(
-        InbreedingCoeff=hl.if_else(
-            hl.is_nan(inbreeding_ht.InbreedingCoeff),
-            hl.null(hl.tfloat32),
+        InbreedingCoeff=hl.or_missing(
+            hl.is_finite(inbreeding_ht.InbreedingCoeff),
             inbreeding_ht.InbreedingCoeff,
         )
     )
