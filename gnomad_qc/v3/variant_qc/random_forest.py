@@ -260,6 +260,17 @@ def train_rf(
         rf_ht = ht.filter(~hl.is_defined(hl.read_table(os.path.join(BASE, 'hail', 'hg38.telomeresAndMergedCentromeres.ht'))[ht.locus]))
     else:
         rf_ht = ht
+
+    # Materialise the feature table before training. train_rf_model persists it
+    # and then aggregates over it; when Spark evicts that persisted table it
+    # recomputes it, and the recomputation referenced a Hail staging file
+    # (table-map-rows-scan-aggs-part-*) that had already been cleaned up,
+    # failing with FileNotFoundException on a file written moments earlier.
+    # Checkpointing means any recomputation reads from durable storage instead.
+    rf_ht = rf_ht.checkpoint(
+        os.path.join(BASE, WRITE_DIR, "rf_training_input.ht"), overwrite=True
+    )
+
     rf_ht, rf_model = train_rf_model(
         rf_ht,
         rf_features=features,
