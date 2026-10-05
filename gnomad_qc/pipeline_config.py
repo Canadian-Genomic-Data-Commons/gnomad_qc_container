@@ -22,6 +22,36 @@ CONFIG_PATH = os.environ.get("GNOMAD_QC_CONFIG", DEFAULT_CONFIG_PATH)
 with open(CONFIG_PATH, "r") as f:
     _CFG = yaml.load(f, Loader=yaml.FullLoader) or {}
 
+
+def _expand(value):
+    """
+    Expand environment variables in config values, recursively.
+
+    Needed for paths a scheduler only decides at run time. The important case
+    is spark.local_dir: Spark's shuffle spill must go to fast node-local disk,
+    whose path on Slurm is $SLURM_TMPDIR and differs per job. Pointing it at a
+    parallel filesystem instead makes shuffle-heavy steps crawl -- it is the
+    same many-small-files problem that makes an Apptainer build on Lustre
+    pathological.
+    """
+    if isinstance(value, str):
+        expanded = os.path.expandvars(value)
+        if "$" in expanded:
+            raise ValueError(
+                f"{CONFIG_PATH} refers to an environment variable that is not "
+                f"set: {value!r}. Set it before running the step, or replace it "
+                "with a literal path."
+            )
+        return expanded
+    if isinstance(value, dict):
+        return {k: _expand(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_expand(v) for v in value]
+    return value
+
+
+_CFG = _expand(_CFG)
+
 _PATHS = _CFG.get("paths") or {}
 _SPARK = _CFG.get("spark") or {}
 _JAVA = _CFG.get("java") or {}

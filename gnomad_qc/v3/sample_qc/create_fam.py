@@ -218,7 +218,12 @@ def main(args):  # noqa: D103
         final_ped.write(os.path.join(BASE, WRITE_DIR, 'pedigree_final.fam'))
 
         final_trios = families_to_trios(final_ped)
-        final_trios.write(trios.path)
+        # trios.path is gs://gnomad/, which is not public: the step did all of
+        # its work and then failed reaching the cloud metadata server for
+        # credentials it cannot have.
+        final_trios.write(
+            os.path.join(BASE, WRITE_DIR, "trios_final.fam")  # trios.path
+        )
 
 
 if __name__ == "__main__":
