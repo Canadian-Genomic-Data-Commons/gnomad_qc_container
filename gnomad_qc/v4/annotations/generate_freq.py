@@ -557,16 +557,19 @@ def densify_and_prep_vds_for_freq(
     mt = mt.annotate_cols(meta=meta_ht[mt.s])
     
     logger.info("Computing sex adjusted genotypes...")
-    ab_expr = mt.LAD[1] / mt.DP # Don't have AD, just LAD in HostSeq, does that matter?
-    gt_expr = adjusted_sex_ploidy_expr(mt.locus, mt.LGT, mt.meta.sex_karyotype) # Likewise GT > LGT
+    # The VDS is split before this is called, so GT and AD are global, biallelic
+    # fields. (This previously used LGT/LAD on an unsplit VDS, whose allele
+    # indices refer to each sample's local alleles rather than the site's.)
+    ab_expr = mt.AD[1] / mt.DP
+    gt_expr = adjusted_sex_ploidy_expr(mt.locus, mt.GT, mt.meta.sex_karyotype)
 
     mt = mt.select_entries(
         "DP",
         "GQ",
         GT=gt_expr,
-        adj=get_adj_expr(gt_expr, mt.GQ, mt.DP, mt.LAD), # AD > LAD
+        adj=get_adj_expr(gt_expr, mt.GQ, mt.DP, mt.AD),
         _het_ab=ab_expr,
-        _high_ab_het_ref=(ab_expr > ab_cutoff), # & ~mt._het_non_ref,
+        _high_ab_het_ref=(ab_expr > ab_cutoff) & ~mt._het_non_ref,
     )
     return mt
 
@@ -1042,6 +1045,31 @@ def main(args):
         if args.run_freq_and_dense_annotations:
             logger.info("Running dense dependent steps...")            
             vds=hl.vds.read_vds(os.path.join(BASE, VDS_FILE))
+
+            # Split multi-allelics before computing frequencies, as the HostSeq
+            # version does (there via --write-split-vds-and-downsampling-ht).
+            # Without this, freq.ht and corrected_freq.ht are keyed on unsplit
+            # sites like [A, C, G, T], while every table they are joined to
+            # downstream is split ([A, C], [A, G], ...). None of the split
+            # variants found a match, so every mixed, multi-snv and multi-indel
+            # variant got no InbreedingCoeff, no RF score, and failed
+            # final_filter -- 44.5M variants in production. Unsplit LGT/LAD
+            # also index *local* alleles, so frequencies at multi-allelic sites
+            # were attributed to the wrong alleles.
+            #
+            # Split in place rather than writing a split copy of the VDS first:
+            # on a full callset that copy is multi-terabyte and millions of
+            # files, and nothing else reads it.
+            logger.info("Splitting multi-allelics in VDS...")
+            vmt = vds.variant_data
+            # Must be computed before the split: afterwards every het is ref/alt.
+            vmt = vmt.annotate_entries(_het_non_ref=vmt.LGT.is_het_non_ref())
+            keep_fields = [f for f in ("LA", "LAD", "DP", "GQ", "LGT") if f in vmt.entry]
+            vmt = vmt.select_entries(*keep_fields, "_het_non_ref")
+            vds = hl.vds.split_multi(
+                hl.vds.VariantDataset(vds.reference_data, vmt), filter_changed_loci=True
+            )
+
             meta_ht = hl.read_table(os.path.join(BASE, WRITE_DIR, "meta.ht"))
             #meta_ht = meta_ht.annotate(sex_karyotype=hl.if_else(meta_ht.group_by_expr == 1, "XY", "XX"))
 
@@ -1150,27 +1178,13 @@ def main(args):
             logger.info(
                 "Adjusting annotations impacted by high AB het -> hom alt adjustment..."
             )
+            # No sampling. This used to keep a random 1,000,000 variants and drop
+            # the rest, so corrected_freq.ht -- the table the RF InbreedingCoeff
+            # feature, final_filter's AC0 and InbreedingCoeff filters, and the
+            # release frequencies all read -- covered under 1% of variants in
+            # production. The HostSeq version processes the whole table.
             ht = hl.read_table(os.path.join(BASE, WRITE_DIR, "freq.ht"))
 
-            N = 1000000
-            total_count = ht.count()
-            logger.info(f"Total variants after filtering: {total_count}")
-
-            if total_count == 0:
-                logger.error("No variants passed initial AC/AF filter. Exiting.")
-                return
-
-            if total_count <= N:
-                ht = ht
-                logger.info(f"Taking all {total_count} variants (less than or equal to {N}).")
-            else:
-                ht = ht.annotate(rand=hl.rand_unif(0, 1))
-                ht = ht.order_by('rand').head(N)
-                logger.info(f"Sampled {N} variants uniformly from filtered table.")
-
-            ht = ht.key_by('locus', 'alleles')
-            logger.info(f"Final variant count after sampling: {ht.count()}")
-            
             # Shouldn't need this, used GATK 4.2.5.0 in our haplotypecaller pipline, commenting out for now. Delete in future unless fields prove to be needed for legacy reasons.
             logger.info("Correcting call stats, qual AB hists, and age hists...")
             #ht = correct_for_high_ab_hets(ht, af_threshold=af_threshold)
