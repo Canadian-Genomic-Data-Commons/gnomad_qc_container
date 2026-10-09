@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcurl4-openssl-dev \
     liblzma-dev \
     libncurses5-dev \
+    patch \
     pkg-config \
     python3 \
     python3-dev \
@@ -84,6 +85,21 @@ COPY gnomad_methods /opt/gnomad_methods
 RUN test -f /opt/gnomad_methods/setup.py || ( \
         echo "ERROR: gnomad_methods/ is empty. Run: git submodule update --init" && \
         exit 1 )
+# Fixes to gnomad_methods that aren't upstream, kept as patch files against the
+# pinned submodule commit (a submodule records only a commit id, so local edits
+# to it would not survive a fresh clone). A patch that is already present is
+# skipped, so a build from a working tree that carries the fix still succeeds;
+# one that neither applies nor is present fails the build.
+COPY patches/gnomad_methods /opt/patches/gnomad_methods
+RUN cd /opt/gnomad_methods && \
+    for p in /opt/patches/gnomad_methods/*.patch; do \
+        if patch -p1 -R --dry-run -s -f < "$p" > /dev/null 2>&1; then \
+            echo "Already applied: $p"; \
+        else \
+            patch -p1 -s < "$p" || { echo "ERROR: could not apply $p"; exit 1; }; \
+            echo "Applied: $p"; \
+        fi; \
+    done
 RUN python3 -m pip install --no-deps -e /opt/gnomad_methods
 
 # --- gnomad_qc pipeline scripts ---------------------------------------------

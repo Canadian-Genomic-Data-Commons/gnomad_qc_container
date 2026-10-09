@@ -1,0 +1,35 @@
+Subject: [PATCH] Checkpoint the indexed table in apply_rf_model before to_spark
+
+Applies to gnomad_methods at d29acb35 (the submodule commit pinned by
+gnomad_qc_container). The Dockerfile applies every patch in this directory
+after copying gnomad_methods into the image.
+
+apply_rf_model calls ht.add_index(), which Hail implements as
+annotate(hl.scan.count()) -- a scan aggregation that stages per-partition
+state under Hail's tmp_dir. to_spark() returns a lazy DataFrame, so the scan
+only runs when Spark evaluates it, at the parquet write, by which point the
+staging files are gone. train_rf (via test_model) and apply_rf failed with
+"FileNotFoundException: table-map-rows-scan-aggs-part-* does not exist".
+Checkpointing the indexed table first makes the index durable.
+
+---
+diff --git a/gnomad/variant_qc/random_forest.py b/gnomad/variant_qc/random_forest.py
+index acecc9a8..e1ee0665 100644
+--- a/gnomad/variant_qc/random_forest.py
++++ b/gnomad/variant_qc/random_forest.py
+@@ -365,6 +365,15 @@ def apply_rf_model(
+     ht_keys = ht.key
+     ht = ht.key_by(index_name)
+ 
++    # Materialise before handing the table to Spark. add_index is implemented
++    # as annotate(hl.scan.count()), a scan aggregation that stages per-partition
++    # state under Hail's tmp_dir. to_spark() then returns a *lazy* DataFrame, so
++    # the scan is only executed when Spark evaluates it -- at the parquet write
++    # below -- by which point that staging has been cleaned up, failing with
++    # "FileNotFoundException: table-map-rows-scan-aggs-part-* does not exist".
++    # Checkpointing makes the index durable so nothing is recomputed.
++    ht = ht.checkpoint(hl.utils.new_temp_file("rf_apply_indexed", "ht"))
++
+     df = ht_to_rf_df(ht, features, label, index_name)
+ 
+     rf_df = rf_model.transform(df)

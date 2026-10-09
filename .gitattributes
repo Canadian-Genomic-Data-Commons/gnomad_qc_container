@@ -5,3 +5,5 @@ entrypoint.sh text eol=lf
 Dockerfile text eol=lf
 *.py text eol=lf
 *.yaml text eol=lf
+# Patch files must match the LF source files they apply to.
+*.patch text eol=lf
