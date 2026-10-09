@@ -1,6 +1,7 @@
 # noqa: D100
 
 import argparse
+import json
 import logging
 
 import hail as hl
@@ -26,7 +27,7 @@ from gnomad.utils.vep import vep_or_lookup_vep
 
 import os
 
-from gnomad_qc.pipeline_config import BASE, WRITE_DIR, init_hail
+from gnomad_qc.pipeline_config import BASE, VEP_CONFIG, WRITE_DIR, init_hail
 
 init_hail("generate_qc_annotations")
 
@@ -348,7 +349,11 @@ def run_vep(vep_version: str = "101") -> hl.Table:
     """
     ht = get_gnomad_v3_vds(remove_hard_filtered_samples=False).variant_data.rows()
     ht = hl.split_multi(ht)
-    vep_config_path=os.path.join(BASE, "hail", "vep_data", "vep114-GRCh38.json")
+    # From config.yaml's reference.vep_config. The fallback is the path the
+    # original Narval run used, so an existing config keeps working.
+    vep_config_path = VEP_CONFIG or os.path.join(
+        BASE, "hail", "vep_data", "vep114-GRCh38.json"
+    )
 
     ht = hl.vep(ht, vep_config_path)
     if "vep_proc_id" in list(ht.row):
@@ -356,8 +361,15 @@ def run_vep(vep_version: str = "101") -> hl.Table:
     with hl.hadoop_open(vep_config_path) as f:
         vep_config = f.read()
 
+    # Record the VEP version the config declares, rather than the literal
+    # "local" (which is what production vep.ht records). The release step
+    # labels its VEP version, and should be able to read it from here.
+    try:
+        vep_version_str = str(json.loads(vep_config).get("vep_version", "local"))
+    except ValueError:
+        vep_version_str = "local"
     ht = ht.annotate_globals(
-        vep_version=f"local",
+        vep_version=vep_version_str,
         vep_help="Running VEP locally; no reference HT",
         vep_config=vep_config,
     )

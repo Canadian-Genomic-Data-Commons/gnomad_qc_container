@@ -30,4 +30,9 @@ reference:
   grch38_fasta_index:
 
   # Local mirror of gnomAD's public resources
+  # Hail VEP config JSON for the vep step, which runs on the host (see
+  # host/run_vep.sh). Its "command" launches VEP, e.g. a wrapper script around a
+  # VEP container, and its "vep_json_schema" decides which VEP fields are kept.
+  vep_config:
+
   public_resource_dir:

@@ -352,7 +352,10 @@ def main(args):  # noqa: D103
     ht = ht.filter(hl.is_defined(ht.filters))
 
     ht = ht.checkpoint(
-        os.path.join(BASE, WRITE_DIR, "test_release_sites.ht"),
+        # This is the release itself, not a test output. It was hardcoded as
+        # test_release_sites.ht when the test/release path choice below was
+        # commented out, so the production release carried a test name.
+        os.path.join(BASE, WRITE_DIR, "release_sites.ht"),
         #(
         #    qc_temp_prefix()
         #    + f"release/gnomad.genomes.sites.test{'.patch' if args.het_nonref_patch else ''}.ht"

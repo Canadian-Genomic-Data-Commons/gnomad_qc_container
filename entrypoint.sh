@@ -193,6 +193,14 @@ declare -A STEP_NEEDS=(
 # to read from config.yaml, the way the rest of the pipeline was converted.
 # Refuse up front rather than let the caller wait out a network timeout -- these
 # retry for minutes before failing.
+# Steps that must run on the host rather than in this container. VEP runs in
+# its own container (e.g. vep114.sif), and starting one container from inside
+# another is generally not possible on HPC. host/run_vep.sh runs the step with
+# the same code and config.yaml, outside this image.
+declare -A STEP_RUN_ON_HOST=(
+    [vep]="host/run_vep.sh"
+)
+
 declare -A STEP_UNSUPPORTED=(
     [calculate_inbreeding]="reads qc.mt() from gs://gnomad/"
     [extract_truth_samples]="checkpoints to gs://gnomad-tmp-4day/"
@@ -215,6 +223,9 @@ EOF
         printf '  %-28s %s %s\n' "$k" "${STEP_SCRIPT[$k]##*/}" "${STEP_FLAGS[$k]}"
         if [[ -n "${STEP_UNSUPPORTED[$k]:-}" ]]; then
             printf '  %-28s   ^ UNSUPPORTED here: %s\n' "" "${STEP_UNSUPPORTED[$k]}"
+        fi
+        if [[ -n "${STEP_RUN_ON_HOST[$k]:-}" ]]; then
+            printf '  %-28s   ^ runs on the host, not in this container: %s\n' "" "${STEP_RUN_ON_HOST[$k]}"
         fi
         if [[ -n "${STEP_NEEDS[$k]:-}" ]]; then
             printf '  %-28s   ^ also needs: %s\n' "" "${STEP_NEEDS[$k]}"
@@ -245,6 +256,16 @@ if [[ -z "$SCRIPT" ]]; then
     usage
     exit 1
 fi
+if [[ -n "${STEP_RUN_ON_HOST[$STEP]:-}" ]]; then
+    cat >&2 <<MSG
+Step '$STEP' runs on the host, not inside this container.
+VEP runs in its own container, and one container cannot start another here.
+Run it with ${STEP_RUN_ON_HOST[$STEP]} from the gnomad_qc_container repository,
+using the same config.yaml; it writes vep.ht to write_dir for later steps.
+MSG
+    exit 1
+fi
+
 if [[ -n "${STEP_UNSUPPORTED[$STEP]:-}" ]]; then
     cat >&2 <<MSG
 Step '$STEP' is not supported outside the Broad: ${STEP_UNSUPPORTED[$STEP]}.

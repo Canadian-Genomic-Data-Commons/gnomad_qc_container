@@ -83,6 +83,10 @@ GRCH37_FASTA_INDEX = _REFERENCE.get("grch37_fasta_index")
 # cluster whose compute nodes have no internet, that makes Hail's GCS connector
 # query the cloud metadata service at 169.254.169.254 and hang until it times
 # out. Pointing the library at a local mirror avoids the network entirely:
+# Hail's VEP config JSON (the file passed to hl.vep). The vep step runs on the
+# host, so the command inside it is a host path, e.g. a wrapper that launches a
+# VEP container.
+VEP_CONFIG = _REFERENCE.get("vep_config")
 PUBLIC_RESOURCE_DIR = _REFERENCE.get("public_resource_dir")
 if PUBLIC_RESOURCE_DIR and "GNOMAD_DEFAULT_PUBLIC_RESOURCE_SOURCE" not in os.environ:
     os.environ["GNOMAD_DEFAULT_PUBLIC_RESOURCE_SOURCE"] = PUBLIC_RESOURCE_DIR
