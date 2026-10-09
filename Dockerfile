@@ -97,8 +97,14 @@ RUN test -f /opt/gnomad_methods/setup.py || ( \
 # to it would not survive a fresh clone). A patch that is already present is
 # skipped, so a build from a working tree that carries the fix still succeeds;
 # one that neither applies nor is present fails the build.
+#
+# Line endings are normalised first. gnomad_methods is a separate repository, so
+# this repo's .gitattributes doesn't reach it, and Git for Windows checks its
+# files out with CRLF endings -- the LF patches then fail with "hunk FAILED".
+# Stripping the carriage returns makes a Windows build identical to a Linux one.
 COPY patches/gnomad_methods /opt/patches/gnomad_methods
-RUN cd /opt/gnomad_methods && \
+RUN find /opt/gnomad_methods -type f -name '*.py' -exec sed -i 's/\r$//' {} + && \
+    cd /opt/gnomad_methods && \
     for p in /opt/patches/gnomad_methods/*.patch; do \
         if patch -p1 -R --dry-run -s -f < "$p" > /dev/null 2>&1; then \
             echo "Already applied: $p"; \
