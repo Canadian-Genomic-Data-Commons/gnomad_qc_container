@@ -42,8 +42,15 @@ RUN python3 -m pip install --upgrade pip
 # Pin the Hail version to whatever you use to read/write your existing
 # Hail Tables/MatrixTables/VDS - Hail's on-disk format is version-sensitive.
 ENV HAIL_VERSION="0.2.134"
+# No pip cache: it only adds to the image, and to the disk the build needs.
+ENV PIP_NO_CACHE_DIR=1
+# Hail on its own first. It pulls in PySpark, which ships as source and has to
+# be built into a wheel here -- the most memory- and disk-hungry moment of the
+# build. Doing it alone keeps the peak lower, which matters on Docker Desktop,
+# whose build engine crashes ("error reading from server: EOF") when its VM runs
+# short. A separate layer also means a later failure doesn't redo this step.
+RUN python3 -m pip install hail==${HAIL_VERSION}
 RUN python3 -m pip install \
-    hail==${HAIL_VERSION} \
     numpy \
     pandas \
     scipy \
