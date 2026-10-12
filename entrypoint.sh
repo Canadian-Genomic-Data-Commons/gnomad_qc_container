@@ -27,6 +27,11 @@ set -euo pipefail
 #
 #   the two freq steps moved ahead of annotate_for_rf, which reads the
 #   corrected_freq.ht they write.
+#
+#   generate_allele_data, generate_ac and generate_fam_stats moved ahead of
+#   annotate_for_rf, which reads allele_data.ht, allele_counts.ht and
+#   fam_stats.ht. The last is optional there: if it doesn't exist yet the
+#   random forest silently trains without transmitted singletons.
 STEP_ORDER=(
     bootstrap_meta
     create_last_END_positions
@@ -53,6 +58,9 @@ STEP_ORDER=(
     load_vqsr
     freq_run_dense_annotations
     freq_correct_high_ab_hets
+    generate_allele_data
+    generate_ac
+    generate_fam_stats
     annotate_for_rf
     train_rf
     apply_rf
@@ -62,9 +70,6 @@ STEP_ORDER=(
     merge_with_truth_data
     bin_truth_sample_concordance
     final_filter
-    generate_allele_data
-    generate_ac
-    generate_fam_stats
     vep
     export_transmitted_singletons_vcf
     create_release_sites_ht
