@@ -14,24 +14,8 @@
 # gnomad_qc/v3/configuration/config.yaml for the template/schema.
 set -euo pipefail
 
-# Ordered to follow the pipeline sequence in the gnomad_qc v3 README, with
-# three deviations the README's order does not survive in this fork, each
-# established by running the pipeline end to end into an empty directory:
-#
-#   bootstrap_meta runs first. meta.ht is a prerequisite built from your
-#   project metadata TSV, not something the pipeline produces: five steps
-#   read it and none write it.
-#
-#   generate_qc_annotations moved ahead of compute_qc_mt, which reads the
-#   split_info.ht it writes.
-#
-#   the two freq steps moved ahead of annotate_for_rf, which reads the
-#   corrected_freq.ht they write.
-#
-#   generate_allele_data, generate_ac and generate_fam_stats moved ahead of
-#   annotate_for_rf, which reads allele_data.ht, allele_counts.ht and
-#   fam_stats.ht. The last is optional there: if it doesn't exist yet the
-#   random forest silently trains without transmitted singletons.
+# Ordered to follow the pipeline sequence in the gnomad_qc v3 README
+
 STEP_ORDER=(
     bootstrap_meta
     create_last_END_positions
@@ -177,10 +161,8 @@ declare -A STEP_FLAGS=(
     [v2_pc_relate]="--run_pc_relate"
 )
 
-# Steps whose script requires an argument only an analyst can choose (which model
-# to use, which quality cutoff). The dispatcher cannot supply these; without them
-# the script exits with an argparse error. Examples come from this project's own
-# run scripts.
+# Steps that need arguments you must supply yourself (which model, which
+# cutoffs). Without them the script exits with an argument error.
 declare -A STEP_NEEDS=(
     [apply_rf]="--model_id <id>        e.g. --model_id rf_c4e89eb8"
     [create_bin_ht]="--model_id <id>        e.g. --model_id rf_c4e89eb8"
@@ -191,21 +173,17 @@ declare -A STEP_NEEDS=(
     [load_vqsr]="--vqsr_vcf_path <path>   plus --header_path for the fixed VQSR header"
     [final_filter]="--model_id and cutoffs  e.g. --model_id rf_c4e89eb8 --model_name RF --score_name RF --snp_bin_cutoff 90 --indel_bin_cutoff 80"
 )
-# Steps that cannot run outside the Broad. They read or checkpoint through
-# gnomAD's internal storage (gs://gnomad/, gs://gnomad-tmp/, gs://gnomad-tmp-4day/),
-# which is not public, so no local mirror can stand in for it. None of them were
-# ever run in this project. Making one work means converting its resource paths
-# to read from config.yaml, the way the rest of the pipeline was converted.
-# Refuse up front rather than let the caller wait out a network timeout -- these
-# retry for minutes before failing.
-# Steps that must run on the host rather than in this container. VEP runs in
-# its own container (e.g. vep114.sif), and starting one container from inside
-# another is generally not possible on HPC. host/run_vep.sh runs the step with
-# the same code and config.yaml, outside this image.
+
+# Steps that run on the host rather than in this container. VEP runs in its own
+# container, which can't be started from inside this one; host/run_vep.sh runs
+# the step with the same code and config.yaml.
 declare -A STEP_RUN_ON_HOST=(
     [vep]="host/run_vep.sh"
 )
 
+# Steps that can't run outside the Broad: they read or write gnomAD's private
+# storage (gs://gnomad/ and its temp buckets). To use one, change its resource
+# paths to read from config.yaml, as the other steps do.
 declare -A STEP_UNSUPPORTED=(
     [calculate_inbreeding]="reads qc.mt() from gs://gnomad/"
     [extract_truth_samples]="checkpoints to gs://gnomad-tmp-4day/"
@@ -285,5 +263,4 @@ FLAGS="${STEP_FLAGS[$STEP]:-}"
 
 : "${GNOMAD_QC_CONFIG:?Set GNOMAD_QC_CONFIG to your config.yaml path and bind-mount it into the container}"
 
-# FLAGS is intentionally unquoted so it word-splits into separate arguments.
 exec python3 "/opt/gnomad_qc/${SCRIPT}" ${FLAGS} "$@"

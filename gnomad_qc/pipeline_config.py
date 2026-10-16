@@ -27,12 +27,9 @@ def _expand(value):
     """
     Expand environment variables in config values, recursively.
 
-    Needed for paths a scheduler only decides at run time. The important case
-    is spark.local_dir: Spark's shuffle spill must go to fast node-local disk,
-    whose path on Slurm is $SLURM_TMPDIR and differs per job. Pointing it at a
-    parallel filesystem instead makes shuffle-heavy steps crawl -- it is the
-    same many-small-files problem that makes an Apptainer build on Lustre
-    pathological.
+    Lets config.yaml use paths only known at run time, such as
+    ${SLURM_TMPDIR} for spark.local_dir and tmp_dir. Both should be on
+    node-local disk; on a parallel filesystem shuffle-heavy steps are very slow.
     """
     if isinstance(value, str):
         expanded = os.path.expandvars(value)
@@ -63,30 +60,21 @@ WRITE_DIR = _PATHS.get("write_dir")
 LOG_DIR = _PATHS.get("log_dir")
 CODE_DIR = _PATHS.get("code_dir")
 VDS_FILE = _PATHS.get("vds_file")
-# Hail's own scratch directory, separate from spark.local_dir. It defaults to
-# /tmp, which inside a container is small, may be a tmpfs, and is not
-# guaranteed to persist for the life of a query -- train_rf failed with
-# FileNotFoundException on a /tmp scan-aggregation part file it had just
-# written. Point this at per-job node-local disk.
+# Hail's scratch directory. Point it at node-local disk; Hail's default, /tmp,
+# is small inside a container.
 TMP_DIR = _PATHS.get("tmp_dir")
 
 GRCH38_FASTA = _REFERENCE.get("grch38_fasta")
 GRCH38_FASTA_INDEX = _REFERENCE.get("grch38_fasta_index")
-# Keep these even where only GRCh38 is used: v3/resources/reference_genome.py
-# imports all four names at module load, so dropping them breaks every step that
-# reaches reference_genome, whether or not GRCh37 is configured. Unset is fine --
-# they resolve to None and reference_genome raises only if GRCh37 is requested.
+# Optional; only needed if GRCh37 is used.
 GRCH37_FASTA = _REFERENCE.get("grch37_fasta")
 GRCH37_FASTA_INDEX = _REFERENCE.get("grch37_fasta_index")
 
-# gnomad_methods resolves its public resources to gs:// URLs by default. On a
-# cluster whose compute nodes have no internet, that makes Hail's GCS connector
-# query the cloud metadata service at 169.254.169.254 and hang until it times
-# out. Pointing the library at a local mirror avoids the network entirely:
-# Hail's VEP config JSON (the file passed to hl.vep). The vep step runs on the
-# host, so the command inside it is a host path, e.g. a wrapper that launches a
-# VEP container.
+# Hail VEP config JSON used by the vep step (run on the host, see
+# host/run_vep.sh).
 VEP_CONFIG = _REFERENCE.get("vep_config")
+# Local copy of gnomAD's public resources. gnomad_methods otherwise reads
+# them from gs://, which hangs on compute nodes without internet access.
 PUBLIC_RESOURCE_DIR = _REFERENCE.get("public_resource_dir")
 if PUBLIC_RESOURCE_DIR and "GNOMAD_DEFAULT_PUBLIC_RESOURCE_SOURCE" not in os.environ:
     os.environ["GNOMAD_DEFAULT_PUBLIC_RESOURCE_SOURCE"] = PUBLIC_RESOURCE_DIR
@@ -97,8 +85,7 @@ if not BASE:
         "your filled-in config.yaml before running a pipeline step."
     )
 
-# Only needed outside the container, where gnomad_qc isn't already on
-# PYTHONPATH. The Dockerfile sets PYTHONPATH itself, so this is a no-op there.
+# Only needed when running outside the container.
 if CODE_DIR:
     sys.path.insert(0, os.path.join(CODE_DIR, "gnomad_qc"))
 
@@ -151,11 +138,8 @@ def init_hail(step_name: str, default_reference: str = "GRCh38") -> None:
     :raises RuntimeError: If Hail is already running, since the configured
         Spark settings could not take effect.
     """
-    # A JVM's heap is fixed at launch, so hl.stop() + hl.init() cannot raise
-    # driver memory. If something started Hail first (importing a module that
-    # touches Hail at import time, say), the configured memory is silently
-    # discarded -- a step asking for 200g would quietly run in ~1g and die far
-    # into a long job. Fail immediately with an explanation instead.
+    # Spark settings can't be changed once Hail has started, so stop here
+    # rather than run with the wrong memory.
     if _hail_already_running():
         raise RuntimeError(
             f"Hail was already initialized before init_hail('{step_name}') ran, so "

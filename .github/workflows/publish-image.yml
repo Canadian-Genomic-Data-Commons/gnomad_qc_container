@@ -2,8 +2,7 @@
 # (ghcr.io), so a lab can `apptainer pull` it instead of building Docker itself
 # and transferring a ~2 GB archive by hand.
 #
-# Deliberately does NOT run on every push to main: publishing is outward-facing,
-# so it happens when you tag a release or press "Run workflow".
+# Runs when you push a version tag or press "Run workflow", not on every push.
 #
 #   git tag v1.0.0 && git push origin v1.0.0
 #
@@ -70,8 +69,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # The pinned Hail/Spark/Java stack is the point of this image, so a
-          # cached layer from an earlier build is safe to reuse.
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

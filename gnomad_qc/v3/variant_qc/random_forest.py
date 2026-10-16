@@ -121,14 +121,8 @@ def create_rf_ht(
     ht = ht.select("lowqual", "AS_lowqual", "FS", "MQ", *INFO_FEATURES_EXISTING) # , "QD"
 
     inbreeding_ht = hl.read_table(os.path.join(BASE, WRITE_DIR, "corrected_freq.ht")) # get_freq().ht()
-    # Drop every non-finite value, not just NaN. This guarded NaN alone, but
-    # the inbreeding coefficient is 1 - observed_het/expected_het, so a variant
-    # with zero expected heterozygosity and observed hets yields -Infinity
-    # rather than NaN. Spark's random forest rejects NaN and Infinity alike
-    # ("Vector values MUST NOT be NaN or Infinity"), so train_rf failed outright
-    # -- on a 50-sample callset 1,215 of 1,419,994 variants were infinite.
-    # Missing is the right representation: the RF already imputes missing
-    # features, and a degenerate denominator carries no information.
+    # Set NaN and +/-Infinity to missing; Spark's random forest rejects both,
+    # and missing features are imputed.
     inbreeding_ht = inbreeding_ht.select(
         InbreedingCoeff=hl.or_missing(
             hl.is_finite(inbreeding_ht.InbreedingCoeff),
@@ -261,12 +255,7 @@ def train_rf(
     else:
         rf_ht = ht
 
-    # Materialise the feature table before training. train_rf_model persists it
-    # and then aggregates over it; when Spark evicts that persisted table it
-    # recomputes it, and the recomputation referenced a Hail staging file
-    # (table-map-rows-scan-aggs-part-*) that had already been cleaned up,
-    # failing with FileNotFoundException on a file written moments earlier.
-    # Checkpointing means any recomputation reads from durable storage instead.
+    # Write the training table to disk first so training doesn't recompute it.
     rf_ht = rf_ht.checkpoint(
         os.path.join(BASE, WRITE_DIR, "rf_training_input.ht"), overwrite=True
     )
@@ -309,15 +298,8 @@ def main(args):  # noqa: D103
         )
         logger.info(f"Completed annotation wrangling for random forests model training")
 
-    # Defined outside the --train_rf branch because --apply_rf and the steps
-    # after it run as separate invocations and need this path too; previously
-    # `--apply_rf --model_id <id>` on its own raised NameError here.
     base_rf_run_path = os.path.join(BASE, WRITE_DIR, "rf_runs")
-    # The run list must be its own file. It used to be written to
-    # <base_rf_run_path>/<model_id>, which is also where the model is saved, so
-    # saving the model destroyed the run list -- and get_rf_runs() was handed
-    # the directory rather than a JSON file, where os.path.isfile() is always
-    # False, so every run silently started from an empty list.
+    # JSON record of all RF runs.
     rf_runs_json = os.path.join(base_rf_run_path, "rf_runs.json")
 
     if args.train_rf:
@@ -380,8 +362,7 @@ def main(args):  # noqa: D103
         with hl.hadoop_open(rf_runs_json, "w") as f:
             json.dump(rf_runs, f)
 
-        # The model id is otherwise only visible in the log, and every step
-        # after this one needs it as --model_id.
+        # Later steps need this id as --model_id.
         logger.info("Trained model id: %s", model_id)
         with hl.hadoop_open(os.path.join(base_rf_run_path, "latest_model_id"), "w") as f:
             f.write(model_id + "\n")

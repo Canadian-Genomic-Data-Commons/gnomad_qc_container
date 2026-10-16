@@ -200,9 +200,6 @@ def main(args):  # noqa: D103
 
     if args.run_mendel_errors:
         mendel_errors = run_mendel_errors()
-        # Table.write takes a path. This was passing hl.Pedigree.read() of the
-        # output path, so the step tried to read the file it was about to write
-        # and always failed with FileNotFoundException on a first run.
         mendel_errors.write(
             os.path.join(BASE, WRITE_DIR, "ped_mendel_errors.ht"),
             overwrite=args.overwrite,
@@ -218,9 +215,6 @@ def main(args):  # noqa: D103
         final_ped.write(os.path.join(BASE, WRITE_DIR, 'pedigree_final.fam'))
 
         final_trios = families_to_trios(final_ped)
-        # trios.path is gs://gnomad/, which is not public: the step did all of
-        # its work and then failed reaching the cloud metadata server for
-        # credentials it cannot have.
         final_trios.write(
             os.path.join(BASE, WRITE_DIR, "trios_final.fam")  # trios.path
         )

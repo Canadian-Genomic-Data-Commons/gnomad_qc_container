@@ -1,9 +1,8 @@
 #!/bin/bash
 # Run the `vep` step on the host, outside the gnomad_qc container.
 #
-# VEP runs in its own container (e.g. vep114.sif), and starting one container
-# from inside another is generally not possible on HPC, so this step can't be
-# dispatched like the others. It uses the same pipeline code and the same
+# VEP runs in its own container (e.g. vep114.sif), which can't be started from
+# inside the gnomad_qc container. This script uses the same pipeline code and
 # config.yaml, and writes vep.ht to write_dir, where create_release_sites_ht
 # (run in the container as usual) picks it up.
 #
@@ -31,9 +30,7 @@ set -euo pipefail
 CONFIG=${1:?usage: run_vep.sh /path/to/config.yaml /path/to/python/env}
 PYENV=${2:?usage: run_vep.sh /path/to/config.yaml /path/to/python/env}
 
-# Repository root, so `import gnomad_qc.pipeline_config` resolves to this
-# checkout. Under sbatch the script is copied to a spool directory, so prefer
-# the directory it was submitted from.
+# Submit from the repository root, or set GNOMAD_QC_REPO.
 REPO=${GNOMAD_QC_REPO:-$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")/..}" && pwd)}
 if [ ! -f "${REPO}/gnomad_qc/pipeline_config.py" ]; then
     echo "Can't find the repository at ${REPO}. Submit from the repository root," \

@@ -101,11 +101,8 @@ def ensure_meta_ht() -> str:
     """
     Build meta.ht from meta_test.tsv if it does not exist, and return its path.
 
-    Deliberately NOT called at import time. Touching Hail during import starts
-    it with default settings before a script's init_hail() runs, and the
-    configured Spark settings can never be applied afterwards -- the JVM heap is
-    fixed at launch, so a configured driver_memory is silently ignored (observed:
-    1GB instead of the configured 24GB). Build only where meta.ht is read.
+    An existing meta.ht is never overwritten: after editing meta_test.tsv,
+    delete meta.ht so it is rebuilt.
 
     :return: Path to meta.ht.
     """
@@ -130,8 +127,7 @@ ped_mendel_errors = VersionedTableResource(
 
 
 if __name__ == "__main__":
-    # Running this module as a script builds meta.ht from meta_test.tsv. The
-    # build is not done at import time -- see ensure_meta_ht() for why.
+    # Run as a script (the bootstrap_meta step) to build meta.ht.
     import hail as _hl
 
     _hl.init()

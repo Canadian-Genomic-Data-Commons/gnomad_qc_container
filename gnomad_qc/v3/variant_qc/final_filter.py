@@ -88,11 +88,7 @@ def generate_final_filter_ht(
             )
         )
 
-    # A bin can exist with no scored variants in it -- for instance when the RF
-    # left most variants unscored because features were not imputed -- and then
-    # the min_score lookup returns None. Previously that skipped the assignment
-    # below and crashed later with "UnboundLocalError: indel_cutoff_global",
-    # which says nothing about bins or scores.
+    # A bin with no scored variants has no min_score; report that clearly.
     for kind, bin_cutoff, score_cutoff in (
         ("SNP", snp_bin_cutoff, snp_score_cutoff),
         ("indel", indel_bin_cutoff, indel_score_cutoff),

@@ -4,11 +4,9 @@ paths:
   log_dir:
   code_dir:
   vds_file:
-  # Hail's scratch directory, separate from spark.local_dir below. Both should
-  # be fast node-local disk, not a parallel filesystem. Leaving this unset means
-  # Hail uses /tmp, which inside a container is small and may not persist for a
-  # whole query. Environment variables are expanded, so on Slurm this can be
-  # '${SLURM_TMPDIR}/hail'.
+  # Hail's scratch directory. Use node-local disk, not a parallel filesystem;
+  # unset means /tmp, which is small inside a container. Environment variables
+  # are expanded, so on Slurm this can be '${SLURM_TMPDIR}/hail'.
   tmp_dir:
 
 spark:
@@ -29,10 +27,11 @@ reference:
   grch38_fasta:
   grch38_fasta_index:
 
-  # Local mirror of gnomAD's public resources
   # Hail VEP config JSON for the vep step, which runs on the host (see
   # host/run_vep.sh). Its "command" launches VEP, e.g. a wrapper script around a
   # VEP container, and its "vep_json_schema" decides which VEP fields are kept.
   vep_config:
 
+  # Local copy of gnomAD's public resources, for compute nodes without
+  # internet access.
   public_resource_dir:

@@ -4,8 +4,8 @@ import hail as hl
 
 from gnomad_qc.pipeline_config import BASE, WRITE_DIR, init_hail
 
-# Hail must be configured before importing anything that may touch it, or the
-# configured Spark settings are silently discarded.
+# Start Hail before importing anything that uses it, or the Spark settings in
+# config.yaml won't apply.
 init_hail("create_last_END_positions")
 
 from gnomad_qc.v3.resources.annotations import last_END_position

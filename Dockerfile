@@ -1,18 +1,14 @@
-# Dockerfile for running the gnomad_qc pipeline scripts (v3/v4/v5) plus the
-# gnomad_methods ("gnomad") library outside of Dataproc, e.g. on an HPC
-# cluster via Apptainer/Singularity.
+# Image for running the gnomad_qc pipeline and the gnomad_methods ("gnomad")
+# library on an HPC cluster via Apptainer/Singularity.
 #
-# Build context must be the repo root that contains both `gnomad_methods/`
-# and `gnomad_qc/` as sibling directories (this file's directory).
+# Build from the repo root (this file's directory), after cloning with
+# --recursive so gnomad_methods/ is populated.
 #
 #   docker build -t gnomad_qc:latest .
 #
 # See the bottom of this file for the Apptainer/Singularity conversion steps.
 
-# Java 11 comes from this base image. Hail 0.2.x is tested on Java 8/11; the
-# Narval runs this container reproduces used Java 11 + Hail 0.2.134 + Spark 3.5.
-# (The previous google/cloud-sdk:slim base rebased onto Debian trixie, which
-# dropped openjdk-11 from its repos.)
+# Java 11 (required by Hail) comes from the base image.
 FROM eclipse-temurin:11-jre-jammy
 
 # --- System deps (Java 11 already provided by the base image) ----------------
@@ -42,13 +38,10 @@ RUN python3 -m pip install --upgrade pip
 # Pin the Hail version to whatever you use to read/write your existing
 # Hail Tables/MatrixTables/VDS - Hail's on-disk format is version-sensitive.
 ENV HAIL_VERSION="0.2.134"
-# No pip cache: it only adds to the image, and to the disk the build needs.
 ENV PIP_NO_CACHE_DIR=1
-# Hail on its own first. It pulls in PySpark, which ships as source and has to
-# be built into a wheel here -- the most memory- and disk-hungry moment of the
-# build. Doing it alone keeps the peak lower, which matters on Docker Desktop,
-# whose build engine crashes ("error reading from server: EOF") when its VM runs
-# short. A separate layer also means a later failure doesn't redo this step.
+# Hail is installed on its own because building PySpark is the most memory-
+# hungry part of the build. If Docker Desktop fails here with "error reading
+# from server: EOF", give its VM more memory (on Windows, in .wslconfig).
 RUN python3 -m pip install hail==${HAIL_VERSION}
 RUN python3 -m pip install \
     numpy \
@@ -69,10 +62,8 @@ RUN python3 -m pip install \
     papermill \
     ipython \
     click
-# Required, despite only being used for notifications: gnomad/utils/slack.py does
-# `from slack import WebClient` at module level, and 62 pipeline scripts import
-# from that module, so without this most steps fail at import with
-# ModuleNotFoundError. Pinned to the version the pipeline was tested against.
+# Required even though Slack notifications aren't used: most pipeline scripts
+# import gnomad's Slack helper, which fails to import without this package.
 RUN python3 -m pip install slackclient==2.5.0
 
 # --- GCS connector (only needed if you read/write gs:// paths from here) -----
@@ -86,22 +77,15 @@ RUN export SPARK_HOME=$(find_spark_home.py) && \
         -e 's:spark\.hadoop\.google\.cloud\.auth\.service\.account\.json\.keyfile.*:spark\.hadoop\.google\.cloud\.auth\.service\.account\.json\.keyfile /gsa-key/key.json:'
 
 # --- gnomad_methods (the "gnomad" package that gnomad_qc imports) -----------
-# This is a git submodule. A clone without `--recursive` leaves it empty, which
-# would otherwise build a broken image that only fails at pipeline run time.
+# Fails the build if the submodule is empty (repo cloned without --recursive).
 COPY gnomad_methods /opt/gnomad_methods
 RUN test -f /opt/gnomad_methods/setup.py || ( \
         echo "ERROR: gnomad_methods/ is empty. Run: git submodule update --init" && \
         exit 1 )
-# Fixes to gnomad_methods that aren't upstream, kept as patch files against the
-# pinned submodule commit (a submodule records only a commit id, so local edits
-# to it would not survive a fresh clone). A patch that is already present is
-# skipped, so a build from a working tree that carries the fix still succeeds;
-# one that neither applies nor is present fails the build.
-#
-# Line endings are normalised first. gnomad_methods is a separate repository, so
-# this repo's .gitattributes doesn't reach it, and Git for Windows checks its
-# files out with CRLF endings -- the LF patches then fail with "hunk FAILED".
-# Stripping the carriage returns makes a Windows build identical to a Linux one.
+# Applies the fixes in patches/gnomad_methods/ to the pinned gnomad_methods
+# commit. Patches already applied are skipped; a patch that can't be applied
+# fails the build. Windows line endings are stripped first so a build from a
+# Windows checkout behaves the same as one from Linux.
 COPY patches/gnomad_methods /opt/patches/gnomad_methods
 RUN find /opt/gnomad_methods -type f -name '*.py' -exec sed -i 's/\r$//' {} + && \
     cd /opt/gnomad_methods && \
@@ -116,11 +100,7 @@ RUN find /opt/gnomad_methods -type f -name '*.py' -exec sed -i 's/\r$//' {} + &&
 RUN python3 -m pip install --no-deps -e /opt/gnomad_methods
 
 # --- gnomad_qc pipeline scripts ---------------------------------------------
-# gnomad_qc has no setup.py upstream, so it's put on PYTHONPATH instead of
-# pip-installed. Note the nested destination: COPY copies the *contents* of the
-# source directory, so `COPY gnomad_qc /opt/gnomad_qc` would drop v3/, v4/ and
-# pipeline_config.py directly into /opt/gnomad_qc, leaving no importable
-# `gnomad_qc` package and breaking the paths entrypoint.sh resolves.
+# gnomad_qc isn't pip-installable, so it's put on PYTHONPATH instead.
 COPY gnomad_qc /opt/gnomad_qc/gnomad_qc
 ENV PYTHONPATH="/opt/gnomad_qc"
 
@@ -159,7 +139,7 @@ WORKDIR /home
 # config.yaml, and point GNOMAD_QC_CONFIG at where you bound the config to.
 #
 #   apptainer run \
-#       --bind /lustre07/scratch/kobe/gnomad:/data \
+#       --bind /path/to/your/data:/data \
 #       --bind /path/to/my_config.yaml:/config/config.yaml \
 #       --env GNOMAD_QC_CONFIG=/config/config.yaml \
 #       gnomad_qc.sif --step ancestry_classification

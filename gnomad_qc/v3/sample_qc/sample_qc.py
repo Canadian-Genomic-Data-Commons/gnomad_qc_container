@@ -789,10 +789,7 @@ def assign_pops(
         n_mislabeled_training_samples=n_mislabeled_samples,
         prop_mislabeled_training_samples=prop_mislabeled_samples,
     )
-    # Only meaningful on the subpop path, where `pop` names the population being
-    # subdivided and pop_field is "subpop". On the global path `pop` is None,
-    # which Hail cannot impute a type for, and pop_field is itself "pop" -- so
-    # annotating it there collided with the row field of the same name.
+    # Only set when assigning subpopulations within `pop`.
     if pop is not None:
         pop_ht = pop_ht.annotate_globals(pop=pop)
     if withhold_prop:
@@ -1426,19 +1423,12 @@ def main(args):  # noqa: D103
             pcs=pcs,
             withhold_prop=args.withhold_prop,
         )
-        # These three were the last writes in this step still pointing at
-        # gs://gnomad/, which is not public: the step did all of its work and
-        # then failed with a 401 trying to checkpoint there.
         pop_ht = pop_ht.checkpoint(
             os.path.join(BASE, WRITE_DIR, "pop.ht"),  # pop.path
             overwrite=args.overwrite,
             _read_if_exists=not args.overwrite,
         )
-        # `pcs` is 1-based, but assign_population_pcs pulls pc_expr[i - 1] and
-        # returns pca_scores holding exactly those PCs in that order. So the
-        # array is indexed by position, not by PC number: indexing it with the
-        # 1-based value read one past the end (index=2, length=2 for the default
-        # [1, 2]) and named the columns PC2/PC3 instead of PC1/PC2.
+        # pca_scores holds only the PCs in `pcs`, in order, so index by position.
         pop_ht.transmute(
             **{f"PC{pc}": pop_ht.pca_scores[idx] for idx, pc in enumerate(pcs)}
         ).export(
@@ -1642,12 +1632,8 @@ if __name__ == "__main__":
         default=10,
         type=int,
     )
-    # These four were hardcoded in compute_hard_filters(), and they are absolute
-    # genome-wide counts. Any callset covering less than the whole genome -- an
-    # exome, a panel, or a chromosome subset used for testing -- falls below
-    # min_n_snp for every sample and is hard-filtered in its entirety, which
-    # surfaces much later as an empty-input error in the outlier regression.
-    # Defaults are unchanged, so genome-wide behaviour is identical.
+    # Hard-filter cutoffs. The defaults are genome-wide counts; lower --min_n_snp
+    # for an exome, panel or subset, or every sample is filtered out.
     parser.add_argument(
         "--max_n_snp",
         help="Maximum number of SNPs for a sample to pass hard filters",
@@ -1748,9 +1734,7 @@ if __name__ == "__main__":
             " 1-based."
         ),
         default=list(range(1, 3)),
-        # `type=list` applied str() to each argument, so --pop_pcs 1,2,3 parsed
-        # as ['1', ',', '2', ',', '3'] and assign_population_pcs rejected it for
-        # holding non-integers. Only the default ever worked.
+        # Space-separated, e.g. --pop_pcs 1 2 3
         type=int,
         nargs="+",
     )
