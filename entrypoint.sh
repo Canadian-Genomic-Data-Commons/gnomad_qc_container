@@ -164,14 +164,14 @@ declare -A STEP_FLAGS=(
 # Steps that need arguments you must supply yourself (which model, which
 # cutoffs). Without them the script exits with an argument error.
 declare -A STEP_NEEDS=(
-    [apply_rf]="--model_id <id>        e.g. --model_id rf_c4e89eb8"
-    [create_bin_ht]="--model_id <id>        e.g. --model_id rf_c4e89eb8"
-    [create_aggregated_bin_ht]="--model_id <id>        e.g. --model_id rf_c4e89eb8"
+    [apply_rf]="--model_id <id>        (from rf_runs/latest_model_id)"
+    [create_bin_ht]="--model_id <id>        (from rf_runs/latest_model_id)"
+    [create_aggregated_bin_ht]="--model_id <id>        (from rf_runs/latest_model_id)"
     [extract_truth_samples]="--model_id <id>"
     [merge_with_truth_data]="--model_id <id>"
     [bin_truth_sample_concordance]="--model_id <id>"
     [load_vqsr]="--vqsr_vcf_path <path>   plus --header_path for the fixed VQSR header"
-    [final_filter]="--model_id and cutoffs  e.g. --model_id rf_c4e89eb8 --model_name RF --score_name RF --snp_bin_cutoff 90 --indel_bin_cutoff 80"
+    [final_filter]="--model_id and cutoffs  e.g. --model_id <id> --model_name RF --score_name RF --snp_bin_cutoff 90 --indel_bin_cutoff 80"
 )
 
 # Steps that run on the host rather than in this container. VEP runs in its own

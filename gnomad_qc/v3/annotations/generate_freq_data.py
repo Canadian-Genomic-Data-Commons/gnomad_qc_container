@@ -179,7 +179,7 @@ def main(args):  # noqa: D103
             logger.info(
                 f"Running frequency generation pipeline on {mt.count_cols()} samples..."
             )
-        
+        """
         meta_ht = hl.read_table(os.path.join(BASE, WRITE_DIR, "meta.ht"))
         meta_ht = meta_ht.annotate(sex_karyotype=hl.if_else(meta_ht.group_by_expr == 1, "XY", "XX"))
         meta_ht = meta_ht.annotate(sex_imputation=hl.struct(sex_karyotype=meta_ht.sex_karyotype))
@@ -193,10 +193,40 @@ def main(args):  # noqa: D103
             meta_ht.select(meta_ht.population_inference.pop).show()
         else:
             # Load ancestry assignments
-            gnomad_v3_assignment_path = os.path.join(BASE, WRITE_DIR, "example_gnomad_v3.1_ancestry_rf.assignment.ht")
+            gnomad_v3_assignment_path = os.path.join(BASE, WRITE_DIR, "gnomad_v3.1_ancestry_rf.assignment.ht")
             ancestry_ht = hl.read_table(gnomad_v3_assignment_path)
             meta_ht = meta_ht.annotate(population_inference=hl.struct(pop=ancestry_ht[meta_ht.s].pop))
         meta_ht = meta_ht.key_by('s')
+        """
+        meta_ht = hl.read_table(os.path.join(BASE, WRITE_DIR, "meta.ht"))
+
+        # Load sex karyotype and population from final_meta.ht which has correct validated values
+        final_meta_ht = hl.read_table(os.path.join(BASE, WRITE_DIR, "final_meta.ht"))
+
+        meta_ht = meta_ht.annotate(
+            sex_imputation=hl.struct(
+                sex_karyotype=final_meta_ht[meta_ht.s].sex_imputation.sex_karyotype
+            )
+        )
+
+        if args.test_subset:
+            populations = ['oth', 'amr', 'afr', 'nfe', 'sas', 'asj', 'eas', 'fin', 'mid']
+            meta_ht = meta_ht.annotate(
+                population_inference=hl.struct(
+                    pop=hl.array(populations)[hl.int(hl.rand_unif(0, 1) * len(populations))]
+                )
+            )
+            print("SHOWING POPULATION INFERENCE IN META.HT (test mode)")
+            meta_ht.select(meta_ht.population_inference.pop).show()
+        else:
+            meta_ht = meta_ht.annotate(
+                population_inference=hl.struct(
+                    pop=final_meta_ht[meta_ht.s].population_inference.pop
+                )
+            )
+
+        meta_ht = meta_ht.key_by('s')
+
         logger.info("Computing adj and sex adjusted genotypes...")
         mt = mt.annotate_cols(meta=meta_ht[mt.s])
         mt.describe()
@@ -206,18 +236,29 @@ def main(args):  # noqa: D103
         print(f"VERIFYING META KEY")
         assert list(meta_ht.key) == ['s'], "meta_ht should be keyed by 's'"
         mt = mt.annotate_cols(meta=meta_ht[mt.s])
-
+        """
         mt = mt.annotate_entries(
             GT=adjusted_sex_ploidy_expr(
                 mt.locus, mt.GT, mt.meta.sex_karyotype
             ),
             adj=get_adj_expr(mt.GT, mt.GQ, mt.DP, mt.AD),
         )
+        """
+
+        mt = mt.annotate_entries(
+            GT=adjusted_sex_ploidy_expr(
+                mt.locus, mt.GT, mt.meta.sex_imputation.sex_karyotype
+            ),
+        )
 
         if not args.het_nonref_patch:
             logger.info("Densifying...")
             mt = hl.experimental.densify(mt)
             mt = mt.filter_rows(hl.len(mt.alleles) > 1)
+
+        mt = mt.annotate_entries(
+            adj=get_adj_expr(mt.GT, mt.GQ, mt.DP, mt.AD),
+        )
 
         # Temporary hotfix for depletion of homozygous alternate genotypes
         logger.info(
@@ -226,9 +267,27 @@ def main(args):  # noqa: D103
         )
         # Load v3.0 allele frequencies to avoid an extra frequency calculation
         # NOTE: Using previous callset AF works for small incremental changes to a callset, but we will need to revisit for large increments # noqa
-        freq_ht = hl.read_table(os.path.join(BASE, 'hail', 'gnomad.genomes.r3.0.sites.ht')).select("freq") # release_sites(public=True).versions["3.0"].ht()
+        """
+        freq_ht = hl.read_table(os.path.join(BASE, 'gnomad.genomes.r3.0.sites.ht')).select("freq") # release_sites(public=True).versions["3.0"].ht()
         mt = hom_alt_depletion_fix(
             mt, het_non_ref_expr=mt._het_non_ref, af_expr=freq_ht[mt.row_key].freq[0].AF
+        )
+        mt = mt.drop("_het_non_ref")
+        """
+
+        freq_ht = hl.read_table(os.path.join(BASE, 'gnomad.genomes.r3.0.sites.ht')).select("freq")
+
+        mt = mt.annotate_entries(
+            GT=hom_alt_depletion_fix(
+                gt_expr=mt.GT,
+                het_non_ref_expr=mt._het_non_ref,
+                af_expr=freq_ht[mt.row_key].freq[0].AF,
+                ab_expr=hl.if_else(
+                    hl.is_defined(mt.AD) & (hl.sum(mt.AD) > 0),
+                    mt.AD[1] / hl.sum(mt.AD),
+                    hl.missing(hl.tfloat64),
+                ),
+            )
         )
         mt = mt.drop("_het_non_ref")
 
@@ -310,10 +369,10 @@ def main(args):  # noqa: D103
             mt = mt.annotate_globals(
                 freq_index_dict=make_freq_index_dict(
                     freq_meta=hl.eval(mt.freq_meta),
-                    downsamplings=hl.eval(mt.downsamplings),
                     label_delimiter="-",
                 )
             )
+
             mt = mt.annotate_rows(freq=set_female_y_metrics_to_na_expr(mt))
 
             logger.info("Calculating InbreedingCoeff...")
@@ -380,7 +439,7 @@ def main(args):  # noqa: D103
                 )
             else:
                 ht.write(
-                    hl.read_table(os.path.join(BASE, WRITE_DIR, "freq.ht")),
+                    os.path.join(BASE, WRITE_DIR, "final_freq.ht"),
                     overwrite=args.overwrite,
                 )
 

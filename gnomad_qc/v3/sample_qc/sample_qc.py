@@ -1010,6 +1010,20 @@ def generate_metadata(regressed_metrics_outlier: bool = True) -> hl.Table:
     )
     left_ht = get_gnomad_v3_mt(remove_hard_filtered_samples=False).cols()
 
+    extra_mt_fields = [f for f in left_ht.row if f not in ['s']]
+    if extra_mt_fields:
+        left_ht = left_ht.drop(*extra_mt_fields)
+
+    # Drop placeholder sample IDs named "none"
+    left_ht = left_ht.filter(left_ht.s != "none")
+    left_ht = left_ht.select_globals()
+
+    left_ht = left_ht.checkpoint(
+        os.path.join(BASE, WRITE_DIR, "mt_cols_filtered.ht"), overwrite=True
+    )
+    n = left_ht.count()
+    logger.info(f"MT cols after filtering 'none': {n} samples")
+
     right_ht = hl.read_table(os.path.join(BASE, WRITE_DIR, "meta.ht")) # project_meta.ht()
     if '' in right_ht.row:
         right_ht = right_ht.drop('')
@@ -1563,7 +1577,9 @@ def main(args):  # noqa: D103
         )
 
     if args.generate_metadata:
-        meta_ht = generate_metadata(args.regressed_metrics_outlier)
+        meta_ht = generate_metadata(
+            regressed_metrics_outlier=not args.stratified_metrics_outlier
+        )
         final_meta = os.path.join(BASE, WRITE_DIR, 'final_meta')
         meta_ht.checkpoint(
             final_meta + ".ht", overwrite=args.overwrite, _read_if_exists=not args.overwrite
@@ -1799,7 +1815,21 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--regressed_metrics_outlier",
-        help="Should metadata HT use regression outlier model.",
+        help=(
+            "Use the regression outlier model (apply_regressed_filters) in the"
+            " metadata HT. This is the default."
+        ),
+        action="store_true",
+    )
+    parser.add_argument(
+        "--stratified_metrics_outlier",
+        help=(
+            "Use the population-stratified outlier model (apply_stratified_filters)"
+            " instead of the regression model. apply_stratified_filters reads the"
+            " populations generate_metadata writes, so on a fresh run: run"
+            " generate_metadata, then apply_stratified_filters, then"
+            " generate_metadata again with this flag."
+        ),
         action="store_true",
     )
     parser.add_argument(

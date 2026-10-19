@@ -207,10 +207,16 @@ arguments from you:
 | Step | Arguments |
 | --- | --- |
 | `compute_hard_filters` | `--min_n_snp <n>` for an exome, panel or subset. The defaults are genome-wide counts (minimum 500,000 SNVs per sample), and below them every sample is filtered out |
-| `generate_metadata` | `--regressed_metrics_outlier`. Without it, `generate_metadata` and `apply_stratified_filters` each need the other's output first |
 | `apply_rf`, `create_bin_ht`, `create_aggregated_bin_ht` | `--model_id <id>`. `train_rf` writes the id to `write_dir/rf_runs/latest_model_id` |
 | `final_filter` | `--model_id <id> --model_name RF --score_name RF --snp_bin_cutoff <n> --indel_bin_cutoff <n>`, e.g. cutoffs 90 and 80 |
 | `load_vqsr` | `--vqsr_vcf_path <path> --header_path <path>`. Optional; skip it if you have no VQSR VCF |
+
+`generate_metadata` flags sample outliers with the regression model from
+`apply_regressed_filters` by default. To use the population-stratified model
+from `apply_stratified_filters` instead, run `generate_metadata`, then
+`apply_stratified_filters`, then `generate_metadata` again with
+`--stratified_metrics_outlier` (the stratified filters need the populations the
+first `generate_metadata` writes).
 
 Several flags of the same script can be combined in one call, e.g.
 `--step sample_qc --impute_sex --compute_hard_filters`. They run in the
@@ -264,9 +270,7 @@ Slurm job individually and mirror the values in `step_overrides`.
 | `create_release_sites_ht` | 40 | 75G | 0.5 |
 
 Steps not listed were not benchmarked separately. Total pipeline runtime is
-roughly 7-8 days. Several steps were substantially over-allocated during
-benchmarking (`sample_qc` used 16.8G of 400G; `create_last_END_positions` used
-11.6G of 92G), so the memory column is an upper bound, not a target.
+roughly 7-8 days.
 
 Other guidance from the benchmarking work:
 

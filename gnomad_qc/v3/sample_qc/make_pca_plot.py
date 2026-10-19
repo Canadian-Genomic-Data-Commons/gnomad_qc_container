@@ -22,7 +22,7 @@ eigenvalues = os.path.join(BASE, WRITE_DIR, "pop_pca_eigenvalues.ht")
 pca_scores = hl.read_table(scores).to_pandas()
 pca_loadings = hl.read_table(loadings).to_pandas()
 pca_eigenvalues = hl.read_table(eigenvalues).to_pandas()
-ancestry_assignment = hl.read_table(os.path.join(BASE, WRITE_DIR, "ancestry_rf.assignment.ht")).to_pandas()
+ancestry_assignment = hl.read_table(os.path.join(BASE, WRITE_DIR, "ancestry_rf.assignment.legacy.ht")).to_pandas()
 
 # %%
 inds_BQC = [list(ancestry_assignment["s"].values).index(s) for s in list(ancestry_assignment["s"].values) if ('BQC' in s)]

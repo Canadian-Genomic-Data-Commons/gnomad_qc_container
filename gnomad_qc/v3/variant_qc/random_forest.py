@@ -356,7 +356,7 @@ def main(args):  # noqa: D103
             },
             test_intervals=args.test_intervals,
             features_importance=hl.eval(ht.features_importance),
-            test_results=hl.eval(ht.test_results),
+            test_results=hl.eval(ht.test_results) if "test_results" in ht.globals else None,
         )
 
         with hl.hadoop_open(rf_runs_json, "w") as f:
@@ -445,7 +445,7 @@ if __name__ == "__main__":
         "--n_partitions",
         help="Desired number of partitions for annotated RF Table.",
         type=int,
-        default=5000,
+        default=25000,
     )
 
     rf_params = parser.add_argument_group("Random Forest parameters")
