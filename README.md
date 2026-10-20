@@ -207,6 +207,7 @@ arguments from you:
 | Step | Arguments |
 | --- | --- |
 | `compute_hard_filters` | `--min_n_snp <n>` for an exome, panel or subset. The defaults are genome-wide counts (minimum 500,000 SNVs per sample), and below them every sample is filtered out |
+| `annotate_for_rf` | Optional `--n_partitions <n>` (default 25000). Each random-forest table is split into this many partitions, about 6 files each, and the random-forest steps write several such tables (about 600,000 files at the default). For a smaller callset, or storage with a file-count quota, aim for about 10,000 variants per partition (the default suits ~175M variants) |
 | `apply_rf`, `create_bin_ht`, `create_aggregated_bin_ht` | `--model_id <id>`. `train_rf` writes the id to `write_dir/rf_runs/latest_model_id` |
 | `final_filter` | `--model_id <id> --model_name RF --score_name RF --snp_bin_cutoff <n> --indel_bin_cutoff <n>`, e.g. cutoffs 90 and 80 |
 | `load_vqsr` | `--vqsr_vcf_path <path> --header_path <path>`. Optional; skip it if you have no VQSR VCF |
@@ -295,3 +296,7 @@ Other guidance from the benchmarking work:
 | **Total recommended** | **20-30TB** (minimum 10TB) |
 
 Peak usage runs 3-4x input data size during processing.
+
+Hail tables are stored as many small files. If your storage limits the number of
+files, check that limit too: the random-forest steps alone write about 600,000
+files at the default `--n_partitions` (see [Running the pipeline](#running-the-pipeline)).
