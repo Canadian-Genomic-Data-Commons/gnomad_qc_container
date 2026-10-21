@@ -190,28 +190,7 @@ Each step logs to `<script name>.log` in `log_dir`.
 ### Running the pipeline
 
 Run the steps in the order `apptainer run gnomad_qc.sif` lists them; each
-step reads what earlier steps wrote to `write_dir`. Steps that need extra
-arguments from you:
-
-| Step | Arguments |
-| --- | --- |
-| `compute_hard_filters` | `--min_n_snp <n>` for an exome, panel or subset. The defaults are genome-wide counts (minimum 500,000 SNVs per sample), and below them every sample is filtered out |
-| `annotate_for_rf` | Optional `--n_partitions <n>` (default 25000). Each random-forest table is split into this many partitions, about 6 files each, and the random-forest steps write several such tables (about 600,000 files at the default). For a smaller callset, or storage with a file-count quota, aim for about 10,000 variants per partition (the default suits ~175M variants) |
-| `apply_rf`, `create_bin_ht`, `create_aggregated_bin_ht` | `--model_id <id>`. `train_rf` writes the id to `write_dir/rf_runs/latest_model_id` |
-| `final_filter` | `--model_id <id> --model_name RF --score_name RF --snp_bin_cutoff <n> --indel_bin_cutoff <n>`, e.g. cutoffs 90 and 80 |
-| `load_vqsr` | `--vqsr_vcf_path <path> --header_path <path>`. Optional; skip it if you have no VQSR VCF |
-
-`generate_metadata` flags sample outliers with the regression model from
-`apply_regressed_filters` by default. To use the population-stratified model
-from `apply_stratified_filters` instead, run `generate_metadata`, then
-`apply_stratified_filters`, then `generate_metadata` again with
-`--stratified_metrics_outlier` (the stratified filters need the populations the
-first `generate_metadata` writes).
-
-Several flags of the same script can be combined in one call, e.g.
-`--step sample_qc --impute_sex --compute_hard_filters`. They run in the
-script's own fixed order, so only combine steps that are adjacent in the list
-above.
+step reads what earlier steps wrote to `write_dir`.
 
 ### VEP
 
