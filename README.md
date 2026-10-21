@@ -70,11 +70,6 @@ cp gnomad_qc/v3/configuration/config.yaml my_config.yaml
 | `reference.public_resource_dir` | Optional local copy of gnomAD's public resources, for compute nodes without internet |
 | `step_overrides` | Optional per-step Spark settings, since steps range from ~10G to ~300G peak memory |
 
-Environment variables in the config are expanded when a step starts, so
-`${SLURM_TMPDIR}` resolves to each job's own node-local directory. Both
-`tmp_dir` and `local_dir` should be node-local: on a parallel filesystem such as
-Lustre, shuffle-heavy steps are very slow.
-
 `step_overrides` is keyed by the pipeline script's name, and any `spark` key can
 be overridden:
 
@@ -85,12 +80,6 @@ step_overrides:
     executor_memory: "200g"
     executor_cores: "64"
 ```
-
-The script names are `sample_qc`, `generate_qc_annotations`,
-`create_last_END_positions`, `ancestry_classification`, `create_fam`,
-`generate_freq`, `random_forest`, `evaluation`, `final_filter` and
-`create_release_sites_ht`. `apptainer run gnomad_qc.sif` shows which script
-each step runs.
 
 ## Get the image
 
