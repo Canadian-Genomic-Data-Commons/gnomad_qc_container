@@ -6,8 +6,7 @@
 #
 #   git tag v1.0.0 && git push origin v1.0.0
 #
-# The package inherits the repository's visibility, so on a private repo it is
-# private until you change it in the package settings.
+# The package is public, so labs can pull it without a GitHub account.
 name: Publish image
 
 on:

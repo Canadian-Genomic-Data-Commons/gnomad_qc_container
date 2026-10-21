@@ -13,10 +13,12 @@ release sites table, `release_sites.ht`.
 
 ## Setup
 
-Clone with submodules -- `gnomad_methods` is required to build the image:
+Clone the repository for the config template and the `host/` scripts. Use
+`--recursive` if you plan to build the image yourself, since the build needs the
+`gnomad_methods` submodule:
 
 ```
-git clone --recursive <repo-url>
+git clone --recursive https://github.com/Canadian-Genomic-Data-Commons/gnomad_qc_container.git
 cd gnomad_qc_container
 ```
 
@@ -85,18 +87,25 @@ step_overrides:
 
 ### Option 1: pull a published image (no Docker needed)
 
-Images are published to the GitHub Container Registry. On the cluster:
+Images are published to the GitHub Container Registry and can be pulled without
+a GitHub account. On the cluster:
 
 ```
 module load apptainer
-apptainer pull gnomad_qc.sif docker://ghcr.io/canadian-genomic-data-commons/gnomad_qc_container:latest
+apptainer pull gnomad_qc_v1.0.1.sif docker://ghcr.io/canadian-genomic-data-commons/gnomad_qc_container:1.0.1
 ```
 
-If the package is private, authenticate first with a GitHub personal access token
-that has `read:packages`:
+Use a fixed version such as `1.0.1` rather than `latest`, so every run of a
+callset uses the same image. Check that it works with
+`apptainer run gnomad_qc_v1.0.1.sif --help`, which lists the steps.
+
+If the pull keeps failing partway through (`unexpected EOF`, `PROTOCOL_ERROR`),
+use `host/pull_image.sh` instead. It downloads each layer with `curl`, resumes
+from where it stopped when the connection drops, then builds the `.sif`:
 
 ```
-apptainer registry login --username <github-username> docker://ghcr.io
+module load apptainer
+bash host/pull_image.sh 1.0.1      # writes gnomad_qc_v1.0.1.sif in the current directory
 ```
 
 If compute nodes have no outbound network, pull on the login node and copy the
@@ -142,14 +151,13 @@ using the repository's own `GITHUB_TOKEN` -- no registry credentials to manage.
 It does not run on every push. Trigger it either way:
 
 ```
-git tag v1.0.0 && git push origin v1.0.0    # publishes 1.0.0, 1.0 and latest
+git tag v1.0.2 && git push origin v1.0.2    # publishes 1.0.2, 1.0 and latest
 ```
 
 or from the Actions tab, "Publish image" -> "Run workflow", giving a tag name.
 
-The package inherits the repository's visibility, so on a private repository it
-starts private. To let other labs pull it without a token, change it under
-Packages -> gnomad_qc_container -> Package settings -> Change visibility.
+New versions are published under the existing public package. Update the
+version in the pull commands above, and the default in `host/pull_image.sh`.
 
 ## Run
 
