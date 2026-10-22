@@ -1,7 +1,7 @@
 # gnomad_qc_container
 
 Containerized [gnomAD QC pipeline](https://github.com/broadinstitute/gnomad_qc) for
-running on HPC clusters (Slurm + Apptainer/Singularity) instead of Google Dataproc.
+running on HPC clusters (Slurm + Apptainer/Singularity).
 
 Derived from the Broad Institute's `gnomad_qc`, with the `gnomad_methods` library
 included as a pinned submodule. Site-specific paths and Spark settings have been
