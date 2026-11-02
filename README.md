@@ -36,6 +36,7 @@ git submodule update --init gnomad_methods
 | GRCh38 FASTA and `.fai` | `reference.grch38_fasta` / `grch38_fasta_index` |
 | Sample metadata TSV, named `meta_test.tsv` | Your `write_dir`, before the first step |
 | VEP install and cache | Used by the `vep` step on the host (see [VEP](#vep)) |
+| gnomAD reference tables | `base_dir/hail/`, `base_dir` and `reference.public_resource_dir` (see [Reference tables](#reference-tables)) |
 
 `meta_test.tsv` is tab-separated with a header row and one row per sample. The
 `bootstrap_meta` step turns it into `meta.ht`. Required columns:
@@ -51,6 +52,43 @@ sample metadata as `project_meta` fields.
 
 An existing `meta.ht` is never overwritten. After editing `meta_test.tsv`,
 delete `meta.ht` and rerun `bootstrap_meta`.
+
+### Reference tables
+
+The pipeline also reads gnomAD reference tables: centromere and telomere
+regions, truth sites, ancestry models, dbSNP and others. All are in gnomAD's
+free public bucket (`gs://gcp-public-data--gnomad`); no Google account or
+requester-pays billing is needed. `host/download_resources.sh` downloads them
+with `gsutil` (part of the Google Cloud SDK). Run it on a node with internet
+access:
+
+```
+nohup bash host/download_resources.sh /path/to/base_dir /path/to/gnomad_public_mirror > download_resources.log 2>&1 &
+```
+
+If it is interrupted, rerun it; only missing files are downloaded. When it
+finishes, set `reference.public_resource_dir` to the mirror folder.
+
+| Table | Where | Used by | Size |
+| --- | --- | --- | --- |
+| `gnomad.genomes.r3.0.sites.ht` | `base_dir` | `compute_qc_mt` (choosing QC sites) | ~340 GB |
+| `purcell5k.ht` | `base_dir` | `compute_qc_mt` | <1 MB |
+| `hg38.telomeresAndMergedCentromeres.ht` | `base_dir/hail` | sample QC, random forest, evaluation, `final_filter` | 2 MB |
+| `LCRFromHengHg38.ht`, `GRCh38_segdups.ht` | `base_dir/hail` | `compute_qc_mt`, `create_release_sites_ht` | 35 MB |
+| `truth_sites.ht`, `clinvar_20190923.ht` | `base_dir/hail` | random forest, evaluation | 530 MB |
+| `gnomad.v3.1.pca_loadings.ht`, `gnomad.v3.1.RF_fit.onnx` | `base_dir/hail` | `ancestry_classification` | 490 MB |
+| `dbsnp_b151_grch38_all_20180418.ht` | `base_dir/hail` | `create_release_sites_ht` | 19 GB |
+
+The pipeline scripts read these from `base_dir` and `base_dir/hail`. The
+`gnomad` library looks for some of the same tables under
+`reference.public_resource_dir`, at the same paths as in gnomAD's bucket (e.g.
+`resources/grch38/clinvar/clinvar_20190923.ht`); without them it tries gnomAD's
+requester-pays bucket and fails. The script links those mirror paths to the
+copies in `base_dir`, so nothing is downloaded twice. Bind the mirror folder
+into the container as well as `base_dir` (see [Running one step](#running-one-step)).
+
+The VQSR input for `load_vqsr` can't be downloaded: it comes from a GATK joint
+call of your own samples. The step is optional, and the pipeline runs without it.
 
 ## Configure
 
@@ -69,7 +107,7 @@ cp gnomad_qc/v3/configuration/config.yaml my_config.yaml
 | `java.tool_options` | JVM options; the G1GC defaults suit large-heap Hail workloads |
 | `reference.grch38_fasta`, `grch38_fasta_index` | Your copy of the GRCh38 FASTA and `.fai` |
 | `reference.vep_config` | Hail VEP config JSON for the `vep` step |
-| `reference.public_resource_dir` | Optional local copy of gnomAD's public resources, for compute nodes without internet |
+| `reference.public_resource_dir` | The gnomAD resource mirror made by `host/download_resources.sh` (see [Reference tables](#reference-tables)) |
 | `step_overrides` | Optional per-step Spark settings, since steps range from ~10G to ~300G peak memory |
 
 `step_overrides` is keyed by the pipeline script's name, and any `spark` key can
@@ -171,9 +209,10 @@ apptainer run gnomad_qc.sif
 ### Running one step
 
 Bind your data directories into the container **at the same paths**, so the
-absolute paths in your config work inside and outside the container. Bind
-`$SLURM_TMPDIR` too if your config uses it, and pass it through, since
-`--cleanenv` clears the environment:
+absolute paths in your config work inside and outside the container. Include
+the gnomAD resource mirror (`reference.public_resource_dir`) if it is outside
+your project folder. Bind `$SLURM_TMPDIR` too if your config uses it, and pass
+it through, since `--cleanenv` clears the environment:
 
 ```bash
 #!/bin/bash

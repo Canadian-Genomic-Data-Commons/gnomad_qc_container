@@ -32,6 +32,6 @@ reference:
   # VEP container, and its "vep_json_schema" decides which VEP fields are kept.
   vep_config:
 
-  # Local copy of gnomAD's public resources, for compute nodes without
-  # internet access.
+  # Folder of gnomAD public resources made by host/download_resources.sh. The
+  # gnomad library reads its reference tables from here.
   public_resource_dir:
