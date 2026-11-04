@@ -32,11 +32,15 @@ git submodule update --init gnomad_methods
 
 | Input | Where it goes |
 | --- | --- |
-| Hail VDS of your callset (GRCh38) | `paths.vds_file` in the config |
+| Hail VDS of your callset (GRCh38), written with Hail 0.2.134 or earlier (file format 1.7.0 or lower) | `paths.vds_file` in the config |
 | GRCh38 FASTA and `.fai` | `reference.grch38_fasta` / `grch38_fasta_index` |
 | Sample metadata TSV, named `meta_test.tsv` | Your `write_dir`, before the first step |
 | VEP install and cache | Used by the `vep` step on the host (see [VEP](#vep)) |
 | gnomAD reference tables | `base_dir/hail/`, `base_dir` and `reference.public_resource_dir` (see [Reference tables](#reference-tables)) |
+
+The container runs Hail 0.2.134, which can read files in older formats but not
+newer ones, so a VDS written with a later Hail version may not load. To match
+exactly, build it with `pip install hail==0.2.134` (requires Java 11).
 
 `meta_test.tsv` is tab-separated with a header row and one row per sample. The
 `bootstrap_meta` step turns it into `meta.ht`. Required columns:
