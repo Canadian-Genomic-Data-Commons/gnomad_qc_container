@@ -102,6 +102,10 @@ Copy the template and fill in your own values:
 cp gnomad_qc/v3/configuration/config.yaml my_config.yaml
 ```
 
+For a filled-in starting point, use `config.example.yaml` in the same folder
+instead. It is sized for a ~4,400-sample genome callset, with `step_overrides`
+for each heavy step, and only the paths need changing.
+
 | Key | What to set |
 | --- | --- |
 | `paths.base_dir`, `write_dir`, `log_dir`, `vds_file` | Absolute paths to your data and output locations. `code_dir` can stay empty when using the container |

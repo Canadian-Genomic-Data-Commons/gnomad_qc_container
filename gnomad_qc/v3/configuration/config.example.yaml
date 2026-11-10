@@ -1,0 +1,87 @@
+# Example config for a ~4,400-sample genome callset on a Slurm cluster, sized
+# from the benchmark in the README's "Resource requirements" section.
+# Copy it, then replace every /path/to/... with your own paths:
+#
+#   cp gnomad_qc/v3/configuration/config.example.yaml my_config.yaml
+#
+# Spark runs in local mode on one node, so driver_memory is the memory Hail
+# actually uses. Request a little more than that from Slurm for each step
+# (e.g. --mem=180G for driver_memory "160g"), and as many CPUs as
+# executor_cores.
+
+paths:
+  base_dir: '/path/to/project'
+  write_dir: '/path/to/project/qc_output'
+  log_dir: '/path/to/project/logs'
+  code_dir:
+  vds_file: '/path/to/project/callset.vds'
+  # Node-local disk; ${SLURM_TMPDIR} is expanded per job.
+  tmp_dir: '${SLURM_TMPDIR}/hail'
+
+# Defaults for every step not listed under step_overrides.
+spark:
+  driver_memory: "80g"
+  executor_memory: "80g"
+  executor_instances: "1"
+  executor_cores: "40"
+  dynamic_allocation: "false"
+  shuffle_service: "false"
+  local_dir: '${SLURM_TMPDIR}/spark'
+  memory_fraction: "0.8"
+
+java:
+  tool_options: "-XX:+UseG1GC -XX:G1HeapRegionSize=32M"
+
+reference:
+  grch38_fasta: '/path/to/reference/Homo_sapiens_assembly38.fasta.gz'
+  grch38_fasta_index: '/path/to/reference/Homo_sapiens_assembly38.fasta.gz.fai'
+
+  # Hail VEP config JSON for the vep step, which runs on the host (see the
+  # README's VEP section).
+  vep_config: '/path/to/vep_data/vep114-GRCh38.json'
+
+  # Folder made by host/download_resources.sh.
+  public_resource_dir: '/path/to/gnomad_public_mirror'
+
+# Per-script Spark settings. Keys are pipeline script names, not step names,
+# so one entry covers every step that script runs (e.g. sample_qc covers
+# sample_qc, impute_sex, pc_relate, run_pca and the other sample_qc.py steps).
+step_overrides:
+  create_last_END_positions:
+    driver_memory: "60g"
+    executor_memory: "60g"
+
+  generate_qc_annotations:
+    driver_memory: "160g"
+    executor_memory: "160g"
+
+  # Sized for impute_sex, the largest sample_qc.py step (~250G peak).
+  sample_qc:
+    driver_memory: "260g"
+    executor_memory: "260g"
+
+  ancestry_classification:
+    driver_memory: "260g"
+    executor_memory: "260g"
+
+  # find_dups, infer_families, run_mendel_errors, finalize_ped
+  create_fam:
+    driver_memory: "110g"
+    executor_memory: "110g"
+
+  # freq_run_dense_annotations, freq_correct_high_ab_hets
+  generate_freq:
+    driver_memory: "260g"
+    executor_memory: "260g"
+    executor_cores: "64"
+
+  # annotate_for_rf, train_rf, apply_rf
+  random_forest:
+    driver_memory: "210g"
+    executor_memory: "210g"
+    executor_cores: "64"
+
+  # create_bin_ht, create_aggregated_bin_ht
+  evaluation:
+    driver_memory: "120g"
+    executor_memory: "120g"
